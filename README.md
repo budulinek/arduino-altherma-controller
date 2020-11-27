@@ -12,7 +12,7 @@ Daikin uses the two wire P1P2 bus for connection between the heat pump itself an
 
 ## Hardware
 
-* **Daikin heat pump **with P1P2 interface. The program should work with these models:
+* **Daikin heat pump** with P1P2 interface. The program should work with these models:
   * **Daikin Altherma LT** (sketch tested with EHVX model)
   * **Daikin Altherma Hybrid** (library tested with EHYHBX model)
   * possibly other models of the Altherma series
@@ -42,7 +42,7 @@ The P1P2 bus is very busy, therefore this Arduino program **filters data packets
 
 Data packet is forwarded as-it-is (Header + Payload) in Hex String format (or raw Hex - see config). The main purpose of this program is the **integration of Daikin Altherma heat pumps into larger home automation and monitoring systems** (such as Loxone, OpenHAB, Home Assistant, EmonCMS and other). You will need one of these systems (or at least some custom script) to parse and convert the UDP or Serial data into human-readable variables.
 
-Payload data formats (i.e. instructions how to parse data you are interested in) for 0x10 - 0x16 and 0xB8 packet types are described here: 
+Payload data formats (i.e. instructions how to parse data you are interested in) for 0x10 - 0x16 and 0xB8 packet types are described here: https://github.com/budulinek/Daikin-P1P2---UDP-Gateway/Payload-data-read.md
 
 ## Write data to P1P2 bus
 
@@ -67,6 +67,8 @@ The program takes care of the handshake, selection of the slave address and CRC 
 **\<packet type>\<parameter number>\<parameter value>**
 
 Remember that both parameter number and value use little endian bytes order. You can send up to six number-value pairs (for 0x35 and 0x3A packet type) or up to five number-value pairs (for 0x36 packet type) in a single command. Overview of all writeable parameters and data types used parameter values is in this document: 
+
+https://github.com/budulinek/Daikin-P1P2---UDP-Gateway/Payload-data-write.md
 
 Here are few examples of commands you can send via UDP or Serial:
 
@@ -99,4 +101,4 @@ Various error codes are sent via UDP and Serial if things go wrong, in the follo
 
 **EEEEEE\<error code>**
 
-For a list of error codes see 
+For a list of error codes see https://github.com/budulinek/Daikin-P1P2---UDP-Gateway/Error-codes.md
