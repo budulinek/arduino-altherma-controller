@@ -15,6 +15,8 @@ The following data types were observed in the parameter values. Little endian by
 | u8        | unsigned 8-bit integer 0 .. 255     |
 | s16       | signed 16-bit integer -32768..32767 |
 
+Explanation of **s16** format: a temperature of 21.5°C  is represented by the value of 215 in little endian format (0xD700). A temperature of  -1°C  is represented by the value of -10 in little endian format (0xF6FF).
+
 Observations show that a few hundred parameters can be exchanged via packet types 0x3X, but only some of them are writeable. The following tables summarize all known writeable parameters for Daikin Altherma LT and Altherma Hybrid:
 
 ### Packet type 0x35
@@ -49,20 +51,19 @@ All temperature values in this table are in 0.1 °C resolution.
 
 ### Packet type 0x3A
 
-| Parameter number | Description       | Data type | Byte: description                                 |
-| ---------------- | ----------------- | --------- | ------------------------------------------------- |
-| 3B               | Decimal delimiter | u8        | 0x00: dot<br/>0x01: comma                         |
-| 3D               | Flow units        | u8        | 0x00: l/min<br/>0x01: GPM                         |
-| 3F               | Temperature units | u8        | 0x00: °F<br/>0x01: °C                             |
-| 40               | Energy units      | u8        | 0x00: kWh<br/>0x01: MBtu                          |
-|                  |                   |           |                                                   |
-|                  |                   |           |                                                   |
-| 4B               | Summer time       | u8        | 0x00: manual<br>0x01: auto                        |
-| 4C               | Silent mode       | u8        | 0x00: auto<br/>0x01: off<br>0x02: on              |
-| 4D               | Silent mode level | u8        | 0x00: level 1<br/>0x01: level 2<br/>0x02: level 3 |
-| 4E               | Operation mode    | u8        | 0x00: heating<br/>0x01: cooling<br/>0x02: auto    |
-|                  |                   |           |                                                   |
-|                  |                   |           |                                                   |
-|                  |                   |           |                                                   |
-|                  |                   |           |                                                   |
+| Parameter number | Description            | Data type | Byte: description                                            |
+| ---------------- | ---------------------- | --------- | ------------------------------------------------------------ |
+| 31               | Enable holiday ??      | u8        | ??                                                           |
+| 3B               | Decimal delimiter      | u8        | 0x00: dot<br/>0x01: comma                                    |
+| 3D               | Flow units             | u8        | 0x00: l/min<br/>0x01: GPM                                    |
+| 3F               | Temperature units      | u8        | 0x00: °F<br/>0x01: °C                                        |
+| 40               | Energy units           | u8        | 0x00: kWh<br/>0x01: MBtu                                     |
+| 4B               | Daylight saving time   | u8        | 0x00: manual<br>0x01: auto                                   |
+| 4C               | Silent mode            | u8        | 0x00: auto<br/>0x01: off<br>0x02: on                         |
+| 4D               | Silent mode level      | u8        | 0x00: level 1<br/>0x01: level 2<br/>0x02: level 3            |
+| 4E               | Operation mode         | u8        | 0x00: heating<br/>0x01: cooling<br/>0x02: auto               |
+| 5B               | Holiday                | u8        | 0x00: off<br>0x01: on                                        |
+| 5E               | Space heating schedule | u8        | 0x00: Predefined 1<br>0x01: Predefined 2<br>0x02: Predefined 3<br>0x03: User defined 1<br>0x04: User defined 2<br>0x05: User defined 3<br>0x06: No schedule<br> |
+| 5F               | Space cooling schedule | u8        | 0x00: Predefined 1<br>0x01: Predefined 2<br>0x02: Predefined 3<br>0x03: User defined 1<br>0x04: No schedule<br/> |
+| 64               | DHW schedule           | u8        | 0x00: Predefined 1<br>0x01: Predefined 2<br>0x02: Predefined 3<br>0x03: User defined 1<br>0x04: No schedule |
 
