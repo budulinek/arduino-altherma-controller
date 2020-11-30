@@ -48,7 +48,7 @@ Payload data formats (i.e. instructions how to parse data you are interested in)
 
 ## Write data to P1P2 bus
 
-Arduino (with the custom P1P2 adapter attached) can control the heat pump by actively communicating with the main controller (user interface). The main controller periodically polls the P1P2 bus for the presence of external controllers. Arduino acts as an external controller: it replies with a "handshake" response (packet type 0x30), and in the next round of request-response sends new data (commands) to the main controller. At the moment, only packet types 0x35, 0x36 and 0x3A are supported for writing data. Older Altherma units only support one external controller (remember that Daikin LAN adapter, 3rd party KNX or Modbus adapters also act as external adapters- you have to disconnect them before using Arduino as an external controller). Newer Altherma units seem to support more external controllers.
+Arduino (with the custom P1P2 adapter attached) can control the heat pump by actively communicating with the main controller (user interface). The main controller periodically polls the P1P2 bus for the presence of external controllers. Arduino acts as an external controller: it replies with a "handshake" response (packet type 0x30), and in the next round of request-response sends new data (commands) to the main controller. At the moment, only packet types 0x35, 0x36 and 0x3A are supported for writing data.
 
 These packets have a specific structure: 
 
@@ -83,6 +83,8 @@ Here are few examples of commands you can send via UDP or Serial:
 `360800F6FF`	= set LWT setpoint deviation to -1°C
 
 The P1P2 bus is much slower than UDP or Serial, therefore incoming commands are temporarily stored in a queue (circular buffer).
+
+Older Altherma units only support one external controller (remember that Daikin LAN adapter, 3rd party KNX or Modbus adapters also act as external adapters- you have to disconnect them before using Arduino as an external controller). Newer Altherma units seem to support more external controllers.
 
 Arduino adapter communicates with the main controller (user interface), rather than the heat pump itself. Also, the program goes to great lengths to avoid bus collision with packets sent by other devices on the bus (by the heat pump, main controller, other external controllers). Yet be aware: hic sunt leones and you are on your own. **No guarantees, use this program at your own risk.** Remember that you can damage or destroy your (expensive) heat pump. Be careful and watch for errors in the output. I also recommend reading documentation provided by the author of the library: https://github.com/Arnold-n/P1P2Serial
 
