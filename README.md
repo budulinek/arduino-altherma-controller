@@ -88,9 +88,9 @@ Arduino adapter communicates with the main controller (user interface), rather t
 
 ## Settings
 
-Specify network parameters in NetworkParams.h file. Random MAC address is generated and stored in EEPROM.
+Specify network parameters in P1P2-UDP_NetConfig.h file. Random MAC address is generated and stored in EEPROM.
 
-You can also configure the behaviour of this program in P1P2Config.h file, especially:
+You can also configure the behaviour of this program in P1P2-UDP_Config.h file, especially:
 
 * format of UDP input and output. Choose between HEX String or raw HEX.
 * range of packet types which will be forwarded via UDP or Serial
