@@ -74,13 +74,13 @@ Remember that both parameter number and value use little endian bytes order. You
 
 Here are few examples of commands you can send via UDP or Serial:
 
-35030001	= turn silent mode on
+`35030001`	= turn silent mode on
 
-352F0000400000	= turn heating (LWT control) off and DHW off in one command
+`352F0000400000`	= turn heating (LWT control) off and DHW off in one command
 
-360300D601	= set DHW setpoint to 47°C
+`360300D601`	= set DHW setpoint to 47°C
 
-360800F6FF	= set LWT setpoint deviation to -1°C
+`360800F6FF`	= set LWT setpoint deviation to -1°C
 
 The P1P2 bus is much slower than UDP or Serial, therefore incoming commands are temporarily stored in a queue (circular buffer).
 
