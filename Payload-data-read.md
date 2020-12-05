@@ -366,4 +366,3 @@ Header: 0x4000B8
 | 13-15     | number of gas boiler hours total       | u24       |                  |
 | 16-18     | ?                                      | u24       |                  |
 
-
