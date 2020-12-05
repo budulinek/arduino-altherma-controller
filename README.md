@@ -12,7 +12,7 @@ Daikin uses the two wire P1P2 bus for connection between the heat pump itself an
 
 ## Hardware
 
-* **Daikin heat pump **with P1P2 interface. The program should work with these models:
+* **Daikin heat pump** with P1P2 interface. The program should work with these models:
   * **Daikin Altherma LT** (sketch tested with EHVX model)
   * **Daikin Altherma Hybrid** (library tested with EHYHBX model)
   * possibly other models of the Altherma series
@@ -68,23 +68,27 @@ The program takes care of the handshake, selection of the slave address and CRC 
 
 **\<packet type>\<parameter number>\<parameter value>**
 
-Remember that both parameter number and value use little endian bytes order. You can send up to six number-value pairs (for 0x35 and 0x3A packet type) or up to five number-value pairs (for 0x36 packet type) in a single command. Overview of all writeable parameters and data types used parameter values is in this document: 
+Remember that both parameter number and value use little endian bytes order. Overview of all writeable parameters and data types used parameter values is in this document: 
 
 [**Writeable packet types**](https://github.com/budulinek/Daikin-P1P2---UDP-Gateway/blob/main/Payload-data-write.md)
 
 Here are few examples of commands you can send via UDP or Serial:
 
-`35030001`	= turn silent mode on
-
-`352F0000400000`	= turn heating (LWT control) off and DHW off in one command
+`35400001`	= turn DHW on
 
 `360300D601`	= set DHW setpoint to 47°C
 
 `360800F6FF`	= set LWT setpoint deviation to -1°C
 
+There is also one "service" command:
+
+`00`	= clear stored payloads, resend all data 
+
 The P1P2 bus is much slower than UDP or Serial, therefore incoming commands are temporarily stored in a queue (circular buffer).
 
-Older Altherma units only support one external controller (remember that Daikin LAN adapter, 3rd party KNX or Modbus adapters also act as external adapters- you have to disconnect them before using Arduino as an external controller). Newer Altherma units seem to support more external controllers.
+Older Daikin units (Altherma LT and Altherma Hybrid) only support one external controller. Since Daikin LAN adapter, or a 3rd party KNX adapter (Zennio) also act as external controllers, you have to disconnect them before using Arduino as an external controller. Newer Daikin units (Altherma 3) seem to support more external controllers.
+
+Arduino uses hysteresis when writing temperature setpoints to the heat pump, in order to minimize wear and tear of the heat pump's EEPROM. If the difference between new and old value is smaller than hysteresis, new value  will NOT be written to P1P2 bus. But you should still be cautious - do not let your home automation system change the values too often. One of Daikin's manuals states a maximum of 7000 setting changes per year.
 
 Arduino adapter communicates with the main controller (user interface), rather than the heat pump itself. Also, the program goes to great lengths to avoid bus collision with packets sent by other devices on the bus (by the heat pump, main controller, other external controllers). Yet be aware: hic sunt leones and you are on your own. **No guarantees, use this program at your own risk.** Remember that you can damage or destroy your (expensive) heat pump. Be careful and watch for errors in the output. I also recommend reading documentation provided by the author of the library: https://github.com/Arnold-n/P1P2Serial
 
