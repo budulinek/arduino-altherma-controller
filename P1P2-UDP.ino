@@ -1,6 +1,7 @@
 /* Daikin P1P2 <---> UDP Gateway
    This Arduino program reads Daikin/Rotex P1/P2 bus using P1P2Serial library and output data over UDP and Serial.
    You can also use this program to control your Daikin/Rotex heat pump: Arduino receives commands from UDP and Serial and writes them to the P1/P2 bus.
+   https://github.com/budulinek/Daikin-P1P2---UDP-Gateway
 
    Copyright (c) 2019-2020 Arnold Niessen, arnold.niessen -at- gmail-dot-com  - and Budulinek licensed under GPL v2.0 (see LICENSE)
        Arnold Niessen contributed with most of the code for Serial and P1P2 bus communication (see https://github.com/Arnold-n/P1P2Serial/tree/master/examples/P1P2Monitor),
@@ -55,16 +56,38 @@ P1P2Serial P1P2Serial;
 int8_t FxAbsentCnt[2] = { -1, -1}; // FxAbsentCnt[x] counts number of unanswered 00Fx30 messages;
 // if -1 than no Fx request or response seen (relevant to detect whether F1 controller is supported or not)
 
-#define RS_SIZE 99      // buffer to store ASCII data read from serial port and UDP, max line length on serial input is 99 (3 characters per byte, plus 'W" and '\r\n')
+
+// Example of a flow (0x36 command sent via P1P2 bus):
+// serial input in hex string -> RS (buffer)
+// -> check if correctly terminated etc. -> convert to raw hex -> CMD (buffer)
+// -> check hysteresis (only for 0x36 commands) -> cmd36History (longterm storage)
+// -> checkCommand (length etc.) -> cmd36Queue (circular buffer)
+// -> check packet read from P1P2 for matching packet type -> WB (buffer)
+
+#define RS_SIZE 14      // buffer to store commands sent as ASCII String via Serial port, max command length is 6 * 2 characters per byte, plus '\r\n'
 static char RS[RS_SIZE];
+#define CMD_SIZE 6     // buffer to store commands as HEX, max command length is 6
+static char CMD[CMD_SIZE];
+
 #define WB_SIZE 32       // buffer to store raw data for writing to P1P2bus, max packet size is 32 (have not seen anytyhing over 24 (23+CRC))
 static byte WB[WB_SIZE];
 #define RB_SIZE 33       // buffers to store raw data and error codes read from P1P2bus; 1 extra for reading back CRC byte
 static byte RB[RB_SIZE];
 static byte EB[RB_SIZE];
 
-CircularBuffer<uint8_t, COMMANDS_QUEUE> cmdLen;    // length of each command
-CircularBuffer<byte, COMMANDS_QUEUE_BYTES> CMD;           // queue of commands
+#define CMD_35_LEN 3            //  length of a 0x35 command (parameter number + value)
+#define CMD_36_LEN 4            //  length of a 0x36 command (parameter number + value)
+#define CMD_3A_LEN 3            //  length of a 0x3A command (parameter number + value)
+
+CircularBuffer<byte, COMMANDS_QUEUE * CMD_35_LEN> cmd35Queue;           // queue for storing commands for packet type 0x35
+CircularBuffer<byte, COMMANDS_QUEUE * CMD_36_LEN> cmd36Queue;           // queue for storing commands for packet type 0x36
+CircularBuffer<byte, COMMANDS_QUEUE * CMD_3A_LEN> cmd3AQueue;           // queue for storing commands for packet type 0x3A
+
+byte cmd35AttemptCnt = 0;       // Counter for attempts to write commands for packet 0x35
+byte cmd36AttemptCnt = 0;
+byte cmd3AAttemptCnt = 0;
+
+static byte cmd36History[SAVED_COMMANDS][CMD_36_LEN];     // storage for 0x36 commands <packet type><parameter number><parameter value> = 5 bytes for each command
 
 // App will generate unique MAC address, bytes 4, 5 and 6 will hold random value
 byte mac[6] = { 0x90, 0xA2, 0xDA, 0x00, 0x00, 0x00 };
@@ -75,7 +98,7 @@ EthernetUDP udpRecv;
 EthernetUDP udpSend;
 
 static byte crc_gen = 0xD9;    // Default generator/Feed for CRC check; these values work at least for the Daikin hybrid
-static byte crc_feed = 0x00;   // Seting crc_gen to 0x00 means no CRC is checked when reading or added when writing
+static byte crc_feed = 0x00;
 
 void error(byte errCode)
 {
@@ -132,7 +155,7 @@ byte controllerId = 0x00;
 byte counterrequest = 0;
 bool newRS = false;                 // True if new Serial input has been read
 byte rsLen = 0;    // serial read length
-byte rsp = 0;      // serial read byte position
+byte rsPos = 0;      // serial read byte position
 unsigned long startMillis;
 #define SERIAL_TIMEOUT 5
 #define SERIAL_TERMINATOR '\n'
@@ -200,7 +223,6 @@ void setup() {
     udpRecv.begin(listenPort);
     udpSend.begin(sendPort);
   }
-
   // Restart: Device restarted, possible power failure.
   error(0xFF);
   dataTimeout.start(DATA_TIMEOUT);
@@ -220,26 +242,26 @@ void loop() {
 void recvSerial()
 {
   while (Serial.available() > 0 && newRS == false) {
-    if (rsp == 0) {
+    if (rsPos == 0) {
       memset(RS, 0, RS_SIZE);
     }
-    if (rsp < RS_SIZE - 1) {
-      RS[rsp] = Serial.read();
-      rsp++;
+    if (rsPos < RS_SIZE - 1) {
+      RS[rsPos] = Serial.read();
+      rsPos++;
     } else {
       Serial.read();
     }
     startMillis = millis();
   }
-  if (rsp != 0 && (millis() - startMillis >= SERIAL_TIMEOUT || RS[rsp - 1] == SERIAL_TERMINATOR)) {
-    rsLen = rsp;
-    rsp = 0;
+  if (rsPos != 0 && (millis() - startMillis >= SERIAL_TIMEOUT || RS[rsPos - 1] == SERIAL_TERMINATOR)) {
+    rsLen = rsPos;
+    rsPos = 0;
     newRS = true;
   }
 }
 
 void processSerial() {
-  byte cmdp = 0; byte n; byte cmdtemp;
+  byte cmdPos = 0; byte n; byte cmdTemp;
   static byte ignoreremainder = 1; // 1 is more robust to avoid misreading a partial message upon reboot, but be aware the first line received will be ignored.
   if (newRS == true) {
     newRS = false;
@@ -258,26 +280,18 @@ void processSerial() {
         if (RS[0] == '\0') {
           // Command error: Empty line received.
           error(0x31);
-          // check command (first byte and length)
-        } else if (sscanf(&RS[0], "%2x", &cmdtemp) && (checkCommand(cmdtemp, rsLen / 2))) {
-          if (monitoringOnly) {
-            // Command error: Monitoring only, command dropped.
-            error(0x32);
-          } else if (cmdLen.available() < 1) {     // check if queue is not full
-            // Memory error: Command queue full. Increase number of commands stored COMMANDS_QUEUE.
-            error(0x41);
-          } else if (CMD.available() < (rsLen / 2)) {
-            // Memory error: Command queue full. Increase number of bytes stored COMMANDS_QUEUE_BYTES.
-            error(0x42);
-          } else {
-            // store input in HEX format
-            cmdLen.push(0);
-            while ((sscanf(&RS[cmdp], "%2x%n", &cmdtemp, &n) == 1)) {
-              CMD.push(cmdtemp);
-              cmdLen.push(cmdLen.pop() + 1);
-              cmdp += n;
-            }
+        } else if (rsLen % 2 != 0) {
+          // Command error: Invalid HEX string (odd length).
+          error(0x35);
+        } else {
+          // store input in HEX format
+          memset(CMD, 0, CMD_SIZE);
+          byte cLen = 0;
+          while ((sscanf(&RS[cmdPos], "%2x%n", &cmdTemp, &n) == 1)) {
+            CMD[cLen++] = cmdTemp;
+            cmdPos += n;
           }
+          processCmd(CMD, cLen);
         }
       }
     }
@@ -288,134 +302,141 @@ void processUdp()
 {
   int udpLen = udpRecv.parsePacket();
   if (udpLen) {
-    byte firstByte;
+    memset(CMD, 0, CMD_SIZE);
 #ifdef RAW_UDP
-    firstByte = udpRecv.read();
+    while (udpRecv.available()) {
+      udpRecv.read(CMD, CMD_SIZE);
+    }
 #else /* RAW_UDP */
-    char temp[2];
-    temp[0] = udpRecv.read();
-    temp[1] = udpRecv.read();
-    udpLen /= 2;
-    firstByte = (byte)strtol(temp, NULL, 16);
-#endif /* RAW_UDP */
-    if (checkCommand(firstByte, udpLen)) {   // check first byte and length
-      if (monitoringOnly) {
-        while (udpRecv.available()) {
-          udpRecv.read();
-        }
-        // Command error: Monitoring only, command dropped.
-        error(0x32);
-      } else if (cmdLen.available() < 1) {   // check if queue is not full
-        while (udpRecv.available()) {
-          udpRecv.read();
-        }
-        // Memory error: Command queue full. Increase number of commands stored COMMANDS_QUEUE.
-        error(0x41);
-      } else if (CMD.available() < udpLen) {
-        while (udpRecv.available()) {
-          udpRecv.read();
-        }
-        // Memory error: Command queue full. Increase number of bytes stored COMMANDS_QUEUE_BYTES.
-        error(0x42);
-      } else {
-        // store input in HEX format, we need to store the first byte we read earlier
-        cmdLen.push(1);
-        CMD.push(firstByte);
-#ifdef RAW_UDP
-        while (udpRecv.available()) {
-          CMD.push(udpRecv.read());
-          cmdLen.push(cmdLen.pop() + 1);
-        }
-#else /* RAW_UDP */
-        while (udpRecv.available()) {
-          temp[0] = udpRecv.read();
-          temp[1] = udpRecv.read();
-          CMD.push((byte)strtol(temp, NULL, 16));
-          cmdLen.push(cmdLen.pop() + 1);
-        }
-#endif /* RAW_UDP */
-      }
-    } else {
-      // checkCommand failed, clear UDP buffer
+    char cmdTemp[2];
+    if (udpLen % 2 != 0) {
+      // Command error: Invalid HEX string (odd length).
+      error(0x35);
       while (udpRecv.available()) {
         udpRecv.read();
       }
+      return;
+    } else {
+      udpLen = 0;
+      while ((udpLen < CMD_SIZE) && udpRecv.available()) {
+        cmdTemp[0] = udpRecv.read();
+        cmdTemp[1] = udpRecv.read();
+        CMD[udpLen++] = (byte)strtol(cmdTemp, NULL, 16);
+      }
     }
+#endif /* RAW_UDP */
+    processCmd(CMD, udpLen);
   }
 }
 
-
-
-bool checkCommand(byte cmd, byte n)
+void processCmd(byte *cmd, byte len)
 {
-  if (cmd == 0x35) {
-    // check command length for packet 0x35, max 19 bytes: 1 byte packet type + 6 * (2 bytes param number + 1 byte param value)
-    switch (n) {
-      case 4 :
-      case 7 :
-      case 10 :
-      case 13 :
-      case 16 :
-      case 19 :
-        // Command OK, will be processed in recvBus()
-        return true;
-        break;
-      default :
-        // Command error: Wrong command length.
-        error(0x34);
-        return false;
-        break;
-    }
-  } else if (cmd == 0x36) {
-    // check command length for packet 0x36, max 21 bytes: 1 byte packet type + 5 * (2 bytes param number + 2 bytes param value)
-    switch (n) {
-      case 5 :
-      case 9 :
-      case 13 :
-      case 17 :
-      case 21 :
-        // Command OK, will be processed in recvBus()
-        return true;
-        break;
-      default :
-        // Command error: Wrong command length.
-        error(0x34);
-        return false;
-        break;
-    }
-  } else if (cmd == 0x3A) {
-    // check command length for packet 0x3A, max 19 bytes: 1 byte packet type + 6 * (2 bytes param number + 1 byte param value)
-    switch (n) {
-      case 4 :
-      case 7 :
-      case 10 :
-      case 13 :
-      case 16 :
-      case 19 :
-        // Command OK, will be processed in recvBus()
-        return true;
-        break;
-      default :
-        // Command error: Wrong command length.
-        error(0x34);
-        return false;
-        break;
-    }
-  } else if (cmd == 0x10) {
-    if (n == 1) {
+  if (cmd[0] == 0x00) {
+    if (len != 1) {
+      // Command error: Wrong command length.
+      error(0x34);
+    } else {
       deletehistory();
       counterrequest = 1;
       // Command OK, but no need to store in command queue
-      return false;
-    } else {
-      // Command error: Wrong command length.
-      error(0x34);
-      return false;
     }
+  } else if (monitoringOnly) {
+    // Command error: Monitoring only, command dropped.
+    error(0x32);
   } else {
-    // Command error: Command for unknown packet type.
-    error(0x33);
-    return false;
+    switch (cmd[0]) {
+      case 0x35 :
+        if (len != CMD_35_LEN + 1) {
+          // Command error: Wrong command length.
+          error(0x34);
+        } else {
+          if (cmd35Queue.available() < len) {
+            // Memory error: Command queue full. Increase number of commands stored COMMANDS_QUEUE.
+            error(0x41);
+          } else {
+            // store in queue, only parameter number and value (3 bytes)
+            for (byte i = 1; i < len; i++) {
+              cmd35Queue.push(cmd[i]);
+            }
+          }
+        }
+        break;
+      case 0x36 :
+        if (len != CMD_36_LEN + 1) {
+          // Command error: Wrong command length.
+          error(0x34);
+        } else {
+          for (byte i = 0; i < SAVED_COMMANDS; i++) {
+            if (cmd36History[i][0] == cmd[1] && cmd36History[i][1] == cmd[2]) {
+              // matching command found in memory
+              if (abs((int)((cmd36History[i][3] << 8) | cmd36History[i][2]) - (int)((cmd[4] << 8) | cmd[3])) < (int)(COMMANDS_HYSTERESIS * 10)) {
+                // difference between stored and new value is smaller than hysteresis, return the whole function and do nothing
+                return;
+              }
+              // difference is equal or larger than hysteresis, store in history (in the same slot) and break the for loop to store the command in queue
+              for (byte j = 1; j < len; j++) {
+                cmd36History[i][j - 1] = cmd[j];
+              }
+              break;
+            } else if (cmd36History[i][0] == 0 && cmd36History[i][1] == 0) {
+              // we have reached an empty slot (identified by parameter number 0x0000), save command in history and break the for loop to store the command in queue
+              for (byte j = 1; j < len; j++) {
+                cmd36History[i][j - 1] = cmd[j];
+              }
+              break;
+            } else if ((i + 1) == SAVED_COMMANDS) {
+              // we have reached the end of storage, command not found, no empty slot.
+              // Delete storage, save command to first slot, show error
+              // and break the for loop (which ends anyway...) to store the command in queue
+              memset(cmd36History, 0, sizeof(cmd36History));
+              for (byte j = 1; j < len; j++) {
+                cmd36History[0][j - 1] = cmd[j];
+              }
+              // Memory error: Not enough memory to store 0x36 commands. Storage deleted and command stored. In case of recurring errors increase SAVED_COMMANDS.
+              error(0x42);
+              break;
+            }
+          }
+          if (cmd36Queue.available() < len) {
+            // Memory error: Command queue full. Increase number of commands stored COMMANDS_QUEUE.
+            error(0x41);
+          } else {
+            // store in queue, only parameter number and value (4 bytes)
+            for (byte i = 1; i < len; i++) {
+              cmd36Queue.push(cmd[i]);
+            }
+          }
+        }
+        break;
+      case 0x3A :
+        if (len != CMD_3A_LEN + 1) {
+          // Command error: Wrong command length.
+          error(0x34);
+        } else {
+          if (cmd3AQueue.available() < len) {
+            // Memory error: Command queue full. Increase number of commands stored COMMANDS_QUEUE.
+            error(0x41);
+          } else {
+            // store in queue, only parameter number and value (3 bytes)
+            for (byte i = 1; i < len; i++) {
+              cmd3AQueue.push(cmd[i]);
+            }
+          }
+        }
+
+
+
+        if (len != 4) {
+          // Command error: Wrong command length.
+          error(0x34);
+          return;
+        }
+        break;
+      default :
+        // Command error: Command for unknown packet type.
+        error(0x33);
+        return;
+    }
   }
 }
 
@@ -444,19 +465,13 @@ void recvBus()
         controllerId = 0x00;
         controllerTimeout.start(CONTROLLER_RETRY_PERIOD);
         monitoringOnly = true;
-        while (!CMD.isEmpty()) {
-          // Command error: Monitoring only, all commands in queue dropped.
-          error(0x32);
-          deleteCommand();
-        }
+        // Command error: Monitoring only, all commands in queue dropped.
+        deleteAllCommands();
       }
     }
     dataTimeout.start(DATA_TIMEOUT);
     uint16_t delta;
     int nread = P1P2Serial.readpacket(RB, delta, EB, RB_SIZE, crc_gen, crc_feed);
-
-    if (RB[1] == 0xF1) Serial.println("prd");
-
     if (!(EB[nread - 1] & ERROR_CRC)) {
       // message received, no error detected
       byte w;
@@ -490,11 +505,8 @@ void recvBus()
             controllerId = 0x00;
             controllerTimeout.start(CONTROLLER_RETRY_PERIOD);
             monitoringOnly = true;
-            while (!CMD.isEmpty()) {
-              // Command error: Monitoring only, command dropped.
-              error(0x32);
-              deleteCommand();
-            }
+            // Command error: Monitoring only, command dropped.
+            deleteAllCommands();
           }
         }
       } else if ((nread > 4) && (RB[0] == 0x00) && ((RB[1] & 0xFE) == 0xF0) && ((RB[2] & 0x30) == 0x30)) {
@@ -525,19 +537,9 @@ void recvBus()
             case 0x30 : // in: 17 byte; out: 17 byte; out pattern WB[7] should contain a 01 if we want to communicate a new setting
               for (w = 3; w < n; w++) WB[w] = 0x00;
               // set byte WB[7] to 0x01 for triggering F035 and byte WB[7] to 0x01 for triggering F036
-              switch (CMD[0]) {
-                case 0x35 :
-                  WB[7] = 0x01;
-                  break;
-                case 0x36 :
-                  WB[8] = 0x01;
-                  break;
-                case 0x3A :
-                  WB[12] = 0x01;
-                  break;
-                default   :
-                  break;
-              }
+              if (!cmd35Queue.isEmpty()) WB[7] = 0x01;
+              if (!cmd36Queue.isEmpty()) WB[8] = 0x01;
+              if (!cmd3AQueue.isEmpty()) WB[12] = 0x01;
               d = PACKET_30_DELAY;
               newWB = true;
               break;
@@ -545,8 +547,8 @@ void recvBus()
               for (w = 3; w < n; w++) WB[w] = RB[w];
               // Do not pretend to be a LAN adapter, because after unit restart it complaints about "data not in sync"
               //              WB[7] = 0x08; // product type for LAN adapter?
-              //              WB[8] = 0xB4; // ??
-              //              WB[9] = 0x10; // ??
+              WB[8] = 0xB4; // ??
+              WB[9] = 0x10; // ??
               newWB = true;
               break;
             case 0x32 : // in: 19 byte: out 19 byte, out is copy in
@@ -558,7 +560,7 @@ void recvBus()
             case 0x34 : // not seen, no response
               break;
             case 0x35 : // in: 21 byte; out 21 byte; 3-byte parameters reply with FF
-              for (byte i = 5; i < n; i += 3) {
+              for (byte i = 2 + CMD_35_LEN; i < n; i += CMD_35_LEN) {
                 if (RB[i - 1] != 0xFF) {
                   dbg(F("35: "));
                   if (RB[i - 2] < 0x10) dbg(F("0"));
@@ -571,12 +573,24 @@ void recvBus()
                 }
               }
               for (w = 3; w < n; w++) WB[w] = 0xFF;
-              if (CMD[0] == 0x35) {
-                // write command
-                for (byte i = 1; i < cmdLen.first(); i++) {
-                  WB[i + 2] = CMD[i];
+              if (!cmd35Queue.isEmpty()) {
+                bool cmdMatch = false;
+                for (byte i = 2 + CMD_35_LEN; i < n && !cmdMatch; i += CMD_35_LEN) {
+                  // check if heat pump sent acknowledgement (in 0x35 packets, acknowledgement has parameter number increased by one)
+                  if ((RB[i - 2] == cmd35Queue[0] + 1) && RB[i - 1] == cmd35Queue[1] && RB[i] == cmd35Queue[2]) cmdMatch = true;
                 }
-                deleteCommand();
+                if (cmdMatch || cmd35AttemptCnt == COMMANDS_ATTEMPTS) {
+                  cmd35AttemptCnt = 0;
+                  for (byte i = 0; i < CMD_35_LEN; i++) {
+                    cmd35Queue.shift();
+                  }
+                  break;
+                }
+                // write command
+                cmd35AttemptCnt++;
+                for (byte i = 0; i < CMD_35_LEN; i++) {
+                  WB[i + 3] = cmd35Queue[i];
+                }
               }
               newWB = true;
               break;
@@ -596,16 +610,27 @@ void recvBus()
                 }
               }
               for (w = 3; w < n; w++) WB[w] = 0xFF;
-              if (CMD[0] == 0x36) {
-                // write command
-                for (byte i = 1; i < cmdLen.first(); i++) {
-                  WB[i + 2] = CMD[i];
+              if (!cmd36Queue.isEmpty()) {
+                bool cmdMatch = false;
+                for (byte i = 2 + CMD_36_LEN; i < n && !cmdMatch; i += CMD_36_LEN) {
+                  // check if heat pump sent acknowledgement (in 0x36 packets, acknowledgement has parameter number increased by one or by four)
+                  if (((RB[i - 3] == cmd36Queue[0] + 1) || (RB[i - 3] == cmd36Queue[0] + 4)) && RB[i - 2] == cmd36Queue[1] && RB[i - 1] == cmd36Queue[2] && RB[i] == cmd36Queue[3]) cmdMatch = true;
                 }
-                deleteCommand();
+                if (cmdMatch || cmd36AttemptCnt == COMMANDS_ATTEMPTS) {
+                  cmd36AttemptCnt = 0;
+                  for (byte i = 0; i < CMD_36_LEN; i++) {
+                    cmd36Queue.shift();
+                  }
+                  break;
+                }
+                // write command
+                cmd36AttemptCnt++;
+                for (byte i = 0; i < CMD_36_LEN; i++) {
+                  WB[i + 3] = cmd36Queue[i];
+                }
               }
               newWB = true;
               break;
-            // fallthrough
             case 0x37 : // in: 23 byte; out 23 byte; 5-byte parameters; reply with FF
             // not seen in EHVX08S23D6V
             // seen in EHVX08S26CB9W (value: 00001001010100001001)
@@ -634,12 +659,21 @@ void recvBus()
                 }
               }
               for (w = 3; w < n; w++) WB[w] = 0xFF;
-              if (CMD[0] == 0x3A) {
-                // write command
-                for (byte i = 1; i < cmdLen.first(); i++) {
-                  WB[i + 2] = CMD[i];
+              if (!cmd3AQueue.isEmpty()) {
+                // there is no acknowledgement for commands (parameters) sent via packet type 0x3A,
+                // so we just send the command twice to make sure it is received
+                if (cmd3AAttemptCnt == 2) {
+                  cmd3AAttemptCnt = 0;
+                  for (byte i = 0; i < CMD_3A_LEN; i++) {
+                    cmd3AQueue.shift();
+                  }
+                  break;
                 }
-                deleteCommand();
+                // write command
+                cmd3AAttemptCnt++;
+                for (byte i = 0; i < CMD_3A_LEN; i++) {
+                  WB[i + 3] = cmd3AQueue[i];
+                }
               }
               newWB = true;
               break;
@@ -744,11 +778,8 @@ void checkTimeout()
     error(0x00);
     dataTimeout.start(DATA_TIMEOUT);
     monitoringOnly = true;
-    while (!CMD.isEmpty()) {
-      // Command error: Monitoring only, command dropped.
-      error(0x32);
-      deleteCommand();
-    }
+    // Command error: Monitoring only, command dropped.
+    deleteAllCommands();
   }
   if (dataResend.isOver()) {
     deletehistory();
@@ -757,10 +788,24 @@ void checkTimeout()
   }
 }
 
-void deleteCommand()        // delete command from queue
+void deleteAllCommands()        // delete all commands from queues
 {
-  for (byte i = 0; i < cmdLen.first(); i++) {
-    CMD.shift();
+  while (!cmd35Queue.isEmpty()) {
+    error(0x32);
+    for (byte i = 0; i < CMD_35_LEN; i++) {
+      cmd35Queue.shift();
+    }
   }
-  cmdLen.shift();
+  while (!cmd36Queue.isEmpty()) {
+    error(0x32);
+    for (byte i = 0; i < CMD_36_LEN; i++) {
+      cmd36Queue.shift();
+    }
+  }
+  while (!cmd3AQueue.isEmpty()) {
+    error(0x32);
+    for (byte i = 0; i < CMD_3A_LEN; i++) {
+      cmd3AQueue.shift();
+    }
+  }
 }
