@@ -9,7 +9,7 @@
 
 const int savedPacketsNum = 2 * (savedPacketsRange[1] - savedPacketsRange[0] + 1);
 
-static byte rbhistory[SAVED_HISTORY_BYTES];              // history storage
+static byte rbhistory[SAVED_PACKETS_BYTES];              // history storage
 static uint16_t savehistoryend = 0;         // #bytes saved so far
 static uint16_t savehistoryp[savedPacketsNum] = {};   // history pointers
 static  uint8_t savehistorylen[savedPacketsNum] = {}; // length of history for a certain packet
@@ -37,12 +37,12 @@ void savehistory(byte *rb, int n) {
       // the first 3 bytes of a packet can be ignored
       uint8_t shign = 3;
       if (!savehistorylen[shi]) {
-        if (savehistoryend + (n - shign) <= SAVED_HISTORY_BYTES) {
+        if (savehistoryend + (n - shign) <= SAVED_PACKETS_BYTES) {
           savehistoryp[shi] = savehistoryend;
           savehistorylen[shi] = n - shign;
           savehistoryend += (n - shign);
         } else {
-          // Memory error: Not enough memory to store saved packets. Increase SAVED_HISTORY_BYTES or adjust savedPacketsRange[].
+          // Memory error: Not enough memory to store saved packets. Increase SAVED_PACKETS_BYTES or adjust savedPacketsRange[].
           error(0x40);
         }
       }
