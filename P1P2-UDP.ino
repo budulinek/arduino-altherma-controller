@@ -16,7 +16,7 @@
         http://www.pjrc.com/teensy/td_libs_AltSoftSerial.html,
         but please note that P1P2Monitor and P1P2Serial are licensed under the GPL v2.0)
 
-   Custom HW adapter is need for connecting to P1P2 bus (https://github.com/Arnold-n/P1P2Serial/tree/master/circuits)
+   Custom HW adapter is needed for connecting to P1P2 bus (https://github.com/Arnold-n/P1P2Serial/tree/master/circuits)
    P1P2erial library is written and tested for the Arduino Uno and Mega.
    It may or may not work on other hardware using a 16MHz clock.
    As it is based on AltSoftSerial, the following pins should work
@@ -67,7 +67,7 @@ int8_t FxAbsentCnt[2] = { -1, -1}; // FxAbsentCnt[x] counts number of unanswered
 #define RS_SIZE 14      // buffer to store commands sent as ASCII String via Serial port, max command length is 6 * 2 characters per byte, plus '\r\n'
 static char RS[RS_SIZE];
 #define CMD_SIZE 6     // buffer to store commands as HEX, max command length is 6
-static char CMD[CMD_SIZE];
+static byte CMD[CMD_SIZE];
 
 #define WB_SIZE 32       // buffer to store raw data for writing to P1P2bus, max packet size is 32 (have not seen anytyhing over 24 (23+CRC))
 static byte WB[WB_SIZE];
@@ -79,15 +79,21 @@ static byte EB[RB_SIZE];
 #define CMD_36_LEN 4            //  length of a 0x36 command (parameter number + value)
 #define CMD_3A_LEN 3            //  length of a 0x3A command (parameter number + value)
 
-CircularBuffer<byte, COMMANDS_QUEUE * CMD_35_LEN> cmd35Queue;           // queue for storing commands for packet type 0x35
-CircularBuffer<byte, COMMANDS_QUEUE * CMD_36_LEN> cmd36Queue;           // queue for storing commands for packet type 0x36
-CircularBuffer<byte, COMMANDS_QUEUE * CMD_3A_LEN> cmd3AQueue;           // queue for storing commands for packet type 0x3A
+CircularBuffer<byte, COMMANDS_QUEUE * CMD_35_LEN> cmd35Queue;           // queue of commands for packet type 0x35
+CircularBuffer<byte, COMMANDS_QUEUE * CMD_36_LEN> cmd36Queue;           // queue of commands for packet type 0x36
+CircularBuffer<byte, COMMANDS_QUEUE * CMD_3A_LEN> cmd3AQueue;           // queue of commands for packet type 0x3A
 
-byte cmd35AttemptCnt = 0;       // Counter for attempts to write commands for packet 0x35
-byte cmd36AttemptCnt = 0;
-byte cmd3AAttemptCnt = 0;
+CircularBuffer<bool, COMMANDS_QUEUE> cmd35QueueNew;           // queue of tags indicating whether command for packet type 0x35 is new (not previously srored)
+CircularBuffer<bool, COMMANDS_QUEUE> cmd36QueueNew;           // queue of tags indicating whether command for packet type 0x36 is new (not previously srored)
+CircularBuffer<bool, COMMANDS_QUEUE> cmd3AQueueNew;           // queue of tags indicating whether command for packet type 0x3A is new (not previously srored)
 
-static byte cmd36History[SAVED_COMMANDS][CMD_36_LEN];     // storage for 0x36 commands <packet type><parameter number><parameter value> = 5 bytes for each command
+static byte cmd35AttemptCnt = 0;       // Counter for attempts to write commands for packet type 0x35
+static byte cmd36AttemptCnt = 0;       // Counter for attempts to write commands for packet type 0x36
+static byte cmd3AAttemptCnt = 0;       // Counter for attempts to write commands for packet type 0x3A
+
+static byte cmd35History[SAVED_COMMANDS][CMD_35_LEN];     // storage for 0x35 commands
+static byte cmd36History[SAVED_COMMANDS][CMD_36_LEN];     // storage for 0x36 commands
+static byte cmd3AHistory[SAVED_COMMANDS][CMD_3A_LEN];     // storage for 0x3A commands
 
 // App will generate unique MAC address, bytes 4, 5 and 6 will hold random value
 byte mac[6] = { 0x90, 0xA2, 0xDA, 0x00, 0x00, 0x00 };
@@ -223,6 +229,11 @@ void setup() {
     udpRecv.begin(listenPort);
     udpSend.begin(sendPort);
   }
+
+  // Initialize storage for commands (we use 0xFF to indicate empty memory)
+  memset(cmd35History, 0xFF, sizeof(cmd35History));
+  memset(cmd36History, 0xFF, sizeof(cmd36History));
+
   // Restart: Device restarted, possible power failure.
   error(0xFF);
   dataTimeout.start(DATA_TIMEOUT);
@@ -331,6 +342,7 @@ void processUdp()
 
 void processCmd(byte *cmd, byte len)
 {
+  byte cmdNew = true;
   if (cmd[0] == 0x00) {
     if (len != 1) {
       // Command error: Wrong command length.
@@ -350,14 +362,45 @@ void processCmd(byte *cmd, byte len)
           // Command error: Wrong command length.
           error(0x34);
         } else {
-          if (cmd35Queue.available() < len) {
+          for (byte i = 0; i < SAVED_COMMANDS; i++) {
+            if (cmd35History[i][0] == cmd[1] && cmd35History[i][1] == cmd[2]) {
+              // matching command (parameter number) found in memory
+              cmdNew = false;
+              if (cmd35History[i][2] == cmd[3]) {
+                // stored and new values are identical, return the whole function and do nothing
+                return;
+              }
+              // stored and new values are different, store new value and break the for loop to store the command in queue
+              cmd35History[i][2] = cmd[3];
+              break;
+            } else if (cmd35History[i][0] == 0xFF && cmd35History[i][1] == 0xFF) {
+              // we have reached an empty slot (identified by parameter number 0xFFFF), save command in history and break the for loop to store the command in queue
+              for (byte j = 0; j < CMD_35_LEN; j++) {
+                cmd35History[i][j] = cmd[j + 1];
+              }
+              break;
+            } else if ((i + 1) == SAVED_COMMANDS) {
+              // we have reached the end of storage, command not found, no empty slot.
+              // Delete storage, save command to first slot, show error
+              // and break the for loop (which ends anyway...) to store the command in queue
+              memset(cmd35History, 0xFF, sizeof(cmd35History));
+              for (byte j = 0; j < CMD_35_LEN; j++) {
+                cmd35History[0][j] = cmd[j + 1];
+              }
+              // Memory error: Not enough memory to store commands. Storage deleted and command stored. In case of recurring errors increase SAVED_COMMANDS.
+              error(0x42);
+              break;
+            }
+          }
+          if (cmd35Queue.available() < CMD_35_LEN) {
             // Memory error: Command queue full. Increase number of commands stored COMMANDS_QUEUE.
             error(0x41);
           } else {
             // store in queue, only parameter number and value (3 bytes)
-            for (byte i = 1; i < len; i++) {
-              cmd35Queue.push(cmd[i]);
+            for (byte i = 0; i < CMD_35_LEN; i++) {
+              cmd35Queue.push(cmd[i + 1]);
             }
+            cmd35QueueNew.push(cmdNew);
           }
         }
         break;
@@ -368,43 +411,44 @@ void processCmd(byte *cmd, byte len)
         } else {
           for (byte i = 0; i < SAVED_COMMANDS; i++) {
             if (cmd36History[i][0] == cmd[1] && cmd36History[i][1] == cmd[2]) {
-              // matching command found in memory
+              // matching command (parameter number) found in memory
+              cmdNew = false;
               if (abs((int)((cmd36History[i][3] << 8) | cmd36History[i][2]) - (int)((cmd[4] << 8) | cmd[3])) < (int)(COMMANDS_HYSTERESIS * 10)) {
                 // difference between stored and new value is smaller than hysteresis, return the whole function and do nothing
                 return;
               }
-              // difference is equal or larger than hysteresis, store in history (in the same slot) and break the for loop to store the command in queue
-              for (byte j = 1; j < len; j++) {
-                cmd36History[i][j - 1] = cmd[j];
-              }
+              // difference is equal or larger than hysteresis, store new value in history and break the for loop to store the command in queue
+              cmd36History[i][2] = cmd[3];
+              cmd36History[i][3] = cmd[4];
               break;
-            } else if (cmd36History[i][0] == 0 && cmd36History[i][1] == 0) {
-              // we have reached an empty slot (identified by parameter number 0x0000), save command in history and break the for loop to store the command in queue
-              for (byte j = 1; j < len; j++) {
-                cmd36History[i][j - 1] = cmd[j];
+            } else if (cmd36History[i][0] == 0xFF && cmd36History[i][1] == 0xFF) {
+              // we have reached an empty slot (identified by parameter number 0xFFFF), save command in history and break the for loop to store the command in queue
+              for (byte j = 0; j < CMD_36_LEN; j++) {
+                cmd36History[i][j] = cmd[j + 1];
               }
               break;
             } else if ((i + 1) == SAVED_COMMANDS) {
               // we have reached the end of storage, command not found, no empty slot.
               // Delete storage, save command to first slot, show error
               // and break the for loop (which ends anyway...) to store the command in queue
-              memset(cmd36History, 0, sizeof(cmd36History));
-              for (byte j = 1; j < len; j++) {
-                cmd36History[0][j - 1] = cmd[j];
+              memset(cmd36History, 0xFF, sizeof(cmd36History));
+              for (byte j = 0; j < CMD_36_LEN; j++) {
+                cmd36History[0][j] = cmd[j + 1];
               }
-              // Memory error: Not enough memory to store 0x36 commands. Storage deleted and command stored. In case of recurring errors increase SAVED_COMMANDS.
+              // Memory error: Not enough memory to store commands. Storage deleted and command stored. In case of recurring errors increase SAVED_COMMANDS.
               error(0x42);
               break;
             }
           }
-          if (cmd36Queue.available() < len) {
+          if (cmd36Queue.available() < CMD_36_LEN) {
             // Memory error: Command queue full. Increase number of commands stored COMMANDS_QUEUE.
             error(0x41);
           } else {
             // store in queue, only parameter number and value (4 bytes)
-            for (byte i = 1; i < len; i++) {
-              cmd36Queue.push(cmd[i]);
+            for (byte i = 0; i < CMD_36_LEN; i++) {
+              cmd36Queue.push(cmd[i + 1]);
             }
+            cmd36QueueNew.push(cmdNew);
           }
         }
         break;
@@ -413,23 +457,46 @@ void processCmd(byte *cmd, byte len)
           // Command error: Wrong command length.
           error(0x34);
         } else {
-          if (cmd3AQueue.available() < len) {
+          for (byte i = 0; i < SAVED_COMMANDS; i++) {
+            if (cmd3AHistory[i][0] == cmd[1] && cmd3AHistory[i][1] == cmd[2]) {
+              // matching command (parameter number) found in memory
+              cmdNew = false;
+              if (cmd3AHistory[i][2] == cmd[3]) {
+                // stored and new values are identical, return the whole function and do nothing
+                return;
+              }
+              // stored and new values are different, store new value and break the for loop to store the command in queue
+              cmd3AHistory[i][2] = cmd[3];
+              break;
+            } else if (cmd3AHistory[i][0] == 0xFF && cmd3AHistory[i][1] == 0xFF) {
+              // we have reached an empty slot (identified by parameter number 0xFFFF), save command in history and break the for loop to store the command in queue
+              for (byte j = 0; j < CMD_3A_LEN; j++) {
+                cmd3AHistory[i][j] = cmd[j + 1];
+              }
+              break;
+            } else if ((i + 1) == SAVED_COMMANDS) {
+              // we have reached the end of storage, command not found, no empty slot.
+              // Delete storage, save command to first slot, show error
+              // and break the for loop (which ends anyway...) to store the command in queue
+              memset(cmd3AHistory, 0xFF, sizeof(cmd3AHistory));
+              for (byte j = 0; j < CMD_3A_LEN; j++) {
+                cmd3AHistory[0][j] = cmd[j + 1];
+              }
+              // Memory error: Not enough memory to store commands. Storage deleted and command stored. In case of recurring errors increase SAVED_COMMANDS.
+              error(0x42);
+              break;
+            }
+          }
+          if (cmd3AQueue.available() < CMD_3A_LEN) {
             // Memory error: Command queue full. Increase number of commands stored COMMANDS_QUEUE.
             error(0x41);
           } else {
             // store in queue, only parameter number and value (3 bytes)
-            for (byte i = 1; i < len; i++) {
-              cmd3AQueue.push(cmd[i]);
+            for (byte i = 0; i < CMD_3A_LEN; i++) {
+              cmd3AQueue.push(cmd[i + 1]);
             }
+            cmd3AQueueNew.push(cmdNew);
           }
-        }
-
-
-
-        if (len != 4) {
-          // Command error: Wrong command length.
-          error(0x34);
-          return;
         }
         break;
       default :
@@ -561,72 +628,107 @@ void recvBus()
               break;
             case 0x35 : // in: 21 byte; out 21 byte; 3-byte parameters reply with FF
               for (byte i = 2 + CMD_35_LEN; i < n; i += CMD_35_LEN) {
-                if (RB[i - 1] != 0xFF) {
-                  dbg(F("35: "));
-                  if (RB[i - 2] < 0x10) dbg(F("0"));
-                  dbg(RB[i - 2], HEX);
-                  if (RB[i - 1] < 0x10) dbg(F("0"));
-                  dbg(RB[i - 1], HEX);
-                  dbg(F(": "));
-                  if (RB[i] < 0x10) dbg(F("0"));
-                  dbgln(RB[i], HEX);
+                if (RB[i - 2] == 0xFF && RB[i - 1] == 0xFF) break;    // 0xFF padding in packet
+                // check if the parameter is stored in a storage of commands received via Serial or UDP
+                for (byte j = 0; j < SAVED_COMMANDS; j++) {
+                  if (cmd35History[j][0] == 0xFF && cmd35History[j][1] == 0xFF) break;  // 0xFF means empty memory slot
+                  if (cmd35History[j][0] == RB[i - 2] && cmd35History[j][1] == RB[i - 1]) {
+                    // matching command (parameter number) found in memory, update its value
+                    cmd35History[j][2] = RB[i];
+                    break;
+                  }
                 }
+                // debug
+                dbg(F("35: "));
+                if (RB[i - 2] < 0x10) dbg(F("0"));
+                dbg(RB[i - 2], HEX);
+                if (RB[i - 1] < 0x10) dbg(F("0"));
+                dbg(RB[i - 1], HEX);
+                dbg(F(": "));
+                if (RB[i] < 0x10) dbg(F("0"));
+                dbgln(RB[i], HEX);
               }
               for (w = 3; w < n; w++) WB[w] = 0xFF;
               if (!cmd35Queue.isEmpty()) {
                 bool cmdMatch = false;
                 for (byte i = 2 + CMD_35_LEN; i < n && !cmdMatch; i += CMD_35_LEN) {
                   // check if heat pump sent acknowledgement (in 0x35 packets, acknowledgement has parameter number increased by one)
-                  if ((RB[i - 2] == cmd35Queue[0] + 1) && RB[i - 1] == cmd35Queue[1] && RB[i] == cmd35Queue[2]) cmdMatch = true;
+                  if (((int)((RB[i - 1] << 8) | RB[i - 2]) - (int)((cmd35Queue[1] << 8) | cmd35Queue[0])) == 1 && RB[i] == cmd35Queue[2]) cmdMatch = true;
                 }
                 if (cmdMatch || cmd35AttemptCnt == COMMANDS_ATTEMPTS) {
                   cmd35AttemptCnt = 0;
+                  if (!cmdMatch && !cmd35QueueNew.first()) {
+                    // Command error: Command not acknowledged by the heat pump.
+                    error(0x36);
+                  }
+                  // delete command from queue
+                  cmd35QueueNew.shift();
                   for (byte i = 0; i < CMD_35_LEN; i++) {
                     cmd35Queue.shift();
                   }
-                  break;
-                }
-                // write command
-                cmd35AttemptCnt++;
-                for (byte i = 0; i < CMD_35_LEN; i++) {
-                  WB[i + 3] = cmd35Queue[i];
+                } else {
+                  // write command
+                  cmd35AttemptCnt++;
+                  for (byte i = 0; i < CMD_35_LEN; i++) {
+                    WB[i + 3] = cmd35Queue[i];
+                  }
                 }
               }
               newWB = true;
               break;
             case 0x36 : // in: 23 byte; out 23 byte; 4-byte parameters; reply with FF
-              for (byte i = 6; i < n; i += 4) {
-                if (RB[i - 2] != 0xFF) {
-                  dbg(F("36: "));
-                  if (RB[i - 3] < 0x10) dbg(F("0"));
-                  dbg(RB[i - 3], HEX);
-                  if (RB[i - 2] < 0x10) dbg(F("0"));
-                  dbg(RB[i - 2], HEX);
-                  dbg(F(": "));
-                  if (RB[i - 1] < 0x10) dbg(F("0"));
-                  dbg(RB[i - 1], HEX);
-                  if (RB[i] < 0x10) dbg(F("0"));
-                  dbgln(RB[i], HEX);
+              for (byte i = 2 + CMD_36_LEN; i < n; i += CMD_36_LEN) {
+                if (RB[i - 3] == 0xFF && RB[i - 2] == 0xFF) break;    // 0xFF padding in packet
+                // check if the parameter is stored in a storage of commands received via Serial or UDP
+                for (byte j = 0; j < SAVED_COMMANDS; j++) {
+                  if (cmd36History[j][0] == 0xFF && cmd36History[j][1] == 0xFF) break;  // 0xFF means empty memory slot
+                  if (cmd36History[j][0] == RB[i - 3] && cmd36History[j][1] == RB[i - 2]) {
+                    // matching command (parameter number) found in memory, update its value
+                    cmd36History[j][2] = RB[i - 1];
+                    cmd36History[j][3] = RB[i];
+                    break;
+                  }
                 }
+                // debug
+                dbg(F("36: "));
+                if (RB[i - 3] < 0x10) dbg(F("0"));
+                dbg(RB[i - 3], HEX);
+                if (RB[i - 2] < 0x10) dbg(F("0"));
+                dbg(RB[i - 2], HEX);
+                dbg(F(": "));
+                if (RB[i - 1] < 0x10) dbg(F("0"));
+                dbg(RB[i - 1], HEX);
+                if (RB[i] < 0x10) dbg(F("0"));
+                dbgln(RB[i], HEX);
               }
               for (w = 3; w < n; w++) WB[w] = 0xFF;
               if (!cmd36Queue.isEmpty()) {
                 bool cmdMatch = false;
                 for (byte i = 2 + CMD_36_LEN; i < n && !cmdMatch; i += CMD_36_LEN) {
-                  // check if heat pump sent acknowledgement (in 0x36 packets, acknowledgement has parameter number increased by one or by four)
-                  if (((RB[i - 3] == cmd36Queue[0] + 1) || (RB[i - 3] == cmd36Queue[0] + 4)) && RB[i - 2] == cmd36Queue[1] && RB[i - 1] == cmd36Queue[2] && RB[i] == cmd36Queue[3]) cmdMatch = true;
+                  // check if heat pump sent "acknowledgement":
+                  //      - parameter number increased by one or by four
+                  //      - parameter value equal or decreased by one
+                  int diffParNum = (int)((RB[i - 2] << 8) | RB[i - 3]) - (int)((cmd36Queue[1] << 8) | cmd36Queue[0]);
+                  int diffParVal = (int)((RB[i] << 8) | RB[i - 1]) - (int)((cmd36Queue[3] << 8) | cmd36Queue[2]);
+                  if ((diffParNum == 1 || diffParNum == 4) && (diffParVal == 0 || diffParVal == -1)) cmdMatch = true;
                 }
-                if (cmdMatch || cmd36AttemptCnt == COMMANDS_ATTEMPTS) {
+              if (cmdMatch || cmd36AttemptCnt == COMMANDS_ATTEMPTS) {
                   cmd36AttemptCnt = 0;
+                  if (!cmdMatch && !cmd36QueueNew.first()) {
+                    // Command error: Command not acknowledged by the heat pump.
+                    error(0x36);
+                  }
+                  // delete command from queue
+                  cmd36QueueNew.shift();
                   for (byte i = 0; i < CMD_36_LEN; i++) {
                     cmd36Queue.shift();
                   }
-                  break;
-                }
-                // write command
-                cmd36AttemptCnt++;
-                for (byte i = 0; i < CMD_36_LEN; i++) {
-                  WB[i + 3] = cmd36Queue[i];
+                } else {
+                  // write command
+                  cmd36AttemptCnt++;
+                  for (byte i = 0; i < CMD_36_LEN; i++) {
+                    WB[i + 3] = cmd36Queue[i];
+                  }
                 }
               }
               newWB = true;
@@ -646,17 +748,26 @@ void recvBus()
             case 0x39 : // in: 21 byte; out 21 byte; 6-byte parameters; reply with FF
             // fallthrough
             case 0x3A : // in: 21 byte; out 21 byte; 3-byte parameters; reply with FF
-              for (byte i = 5; i < n; i += 3) {
-                if (RB[i - 1] != 0xFF) {
-                  dbg(F("3A: "));
-                  if (RB[i - 2] < 0x10) dbg(F("0"));
-                  dbg(RB[i - 2], HEX);
-                  if (RB[i - 1] < 0x10) dbg(F("0"));
-                  dbg(RB[i - 1], HEX);
-                  dbg(F(": "));
-                  if (RB[i] < 0x10) dbg(F("0"));
-                  dbgln(RB[i], HEX);
+              for (byte i = 2 + CMD_3A_LEN; i < n; i += CMD_3A_LEN) {
+                if (RB[i - 2] == 0xFF && RB[i - 1] == 0xFF) break;    // 0xFF padding in packet
+                // check if the parameter is stored in a storage of commands received via Serial or UDP
+                for (byte j = 0; j < SAVED_COMMANDS; j++) {
+                  if (cmd3AHistory[j][0] == 0xFF && cmd3AHistory[j][1] == 0xFF) break;  // 0xFF means empty memory slot
+                  if (cmd3AHistory[j][0] == RB[i - 2] && cmd3AHistory[j][1] == RB[i - 1]) {
+                    // matching command (parameter number) found in memory, update its value
+                    cmd3AHistory[j][2] = RB[i];
+                    break;
+                  }
                 }
+                // debug
+                dbg(F("3A: "));
+                if (RB[i - 2] < 0x10) dbg(F("0"));
+                dbg(RB[i - 2], HEX);
+                if (RB[i - 1] < 0x10) dbg(F("0"));
+                dbg(RB[i - 1], HEX);
+                dbg(F(": "));
+                if (RB[i] < 0x10) dbg(F("0"));
+                dbgln(RB[i], HEX);
               }
               for (w = 3; w < n; w++) WB[w] = 0xFF;
               if (!cmd3AQueue.isEmpty()) {
@@ -664,15 +775,17 @@ void recvBus()
                 // so we just send the command twice to make sure it is received
                 if (cmd3AAttemptCnt == 2) {
                   cmd3AAttemptCnt = 0;
+                  // delete command from queue
+                  cmd3AQueueNew.shift();
                   for (byte i = 0; i < CMD_3A_LEN; i++) {
                     cmd3AQueue.shift();
                   }
-                  break;
-                }
-                // write command
-                cmd3AAttemptCnt++;
-                for (byte i = 0; i < CMD_3A_LEN; i++) {
-                  WB[i + 3] = cmd3AQueue[i];
+                } else {
+                  // write command
+                  cmd3AAttemptCnt++;
+                  for (byte i = 0; i < CMD_3A_LEN; i++) {
+                    WB[i + 3] = cmd3AQueue[i];
+                  }
                 }
               }
               newWB = true;
@@ -745,8 +858,8 @@ void recvBus()
       int n = nread;
       if (crc_gen) n--; // omit CRC
       if (changedPacket(RB, n)) {
-        // Print only FORWARDED_PACKETS_RANGE
-        if (((RB[2] >= forwardedPacketsRange[0]) && (RB[2] <= forwardedPacketsRange[1])) || (RB[2] == 0xB8)) {
+        // Print only forwardedPacketsRange
+        if ((RB[2] >= forwardedPacketsRange[0] && RB[2] <= forwardedPacketsRange[1]) || RB[2] == 0xB8) {
           for (int i = 0; i < n; i++) {
             if (RB[i] < 0x10) Serial.print(F("0"));
             Serial.print(RB[i], HEX);
@@ -790,18 +903,21 @@ void checkTimeout()
 
 void deleteAllCommands()        // delete all commands from queues
 {
+  while (!cmd35QueueNew.isEmpty()) cmd35QueueNew.shift();
   while (!cmd35Queue.isEmpty()) {
     error(0x32);
     for (byte i = 0; i < CMD_35_LEN; i++) {
       cmd35Queue.shift();
     }
   }
+  while (!cmd36QueueNew.isEmpty()) cmd36QueueNew.shift();
   while (!cmd36Queue.isEmpty()) {
     error(0x32);
     for (byte i = 0; i < CMD_36_LEN; i++) {
       cmd36Queue.shift();
     }
   }
+  while (!cmd3AQueueNew.isEmpty()) cmd3AQueueNew.shift();
   while (!cmd3AQueue.isEmpty()) {
     error(0x32);
     for (byte i = 0; i < CMD_3A_LEN; i++) {
