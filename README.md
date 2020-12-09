@@ -48,7 +48,9 @@ Payload data formats (i.e. instructions how to parse data you are interested in)
 
 ## Write data to P1P2 bus
 
-Arduino (with the custom P1P2 adapter attached) can control the heat pump by actively communicating with the main controller (user interface). The main controller periodically polls the P1P2 bus for the presence of external controllers. Arduino acts as an external controller: it replies with a "handshake" response (packet type 0x30), and in the next round of request-response sends new data (commands) to the main controller. At the moment, only packet types 0x35, 0x36 and 0x3A are supported for writing data.
+Arduino (with the custom P1P2 adapter attached) can control the heat pump by actively communicating with the main controller (user interface). The main controller periodically polls the P1P2 bus for the presence of external controllers. Older Daikin units (Altherma LT and Altherma Hybrid) only support one external controller. Since Daikin LAN adapter, or a 3rd party KNX adapter (Zennio) also act as external controllers, you have to disconnect them before using Arduino as an external controller. Newer Daikin units (Altherma 3) seem to support more external controllers.
+
+Arduino acts as an external controller: it replies with a "handshake" response (packet type 0x30), and in the next round of request-response sends new data (commands) to the main controller. At the moment, only packet types 0x35, 0x36 and 0x3A are supported for writing data.
 
 These packets have a specific structure: 
 
@@ -84,23 +86,22 @@ There is also one "service" command:
 
 `00`	= clear stored payloads, resend all data 
 
-The P1P2 bus is much slower than UDP or Serial, therefore incoming commands are temporarily stored in a queue (circular buffer).
+When you issue a command, Arduino will store it in memory. When you issue the same command in the future (same packet type and parameter number), it will be written to the P1P2 bus only in case the new command has different parameter value. Temperature setpoints (0x36 packet type) are written to the P1P2 bus only if the difference between new and old value is equal or higher than hysteresis (specified in config file). Arduino will also update the stored parameter value if you change settings manually on your main controller (user interface). Commands are stored and hysteresis is used in order to minimize wear and tear of the heat pump's EEPROM. But you should still be cautious - do not let your home automation system send commands too often. One of Daikin's manuals states a maximum of 7000 setting changes per year.
 
-Older Daikin units (Altherma LT and Altherma Hybrid) only support one external controller. Since Daikin LAN adapter, or a 3rd party KNX adapter (Zennio) also act as external controllers, you have to disconnect them before using Arduino as an external controller. Newer Daikin units (Altherma 3) seem to support more external controllers.
-
-Arduino uses hysteresis when writing temperature setpoints to the heat pump, in order to minimize wear and tear of the heat pump's EEPROM. If the difference between new and old value is smaller than hysteresis, new value  will NOT be written to P1P2 bus. But you should still be cautious - do not let your home automation system change the values too often. One of Daikin's manuals states a maximum of 7000 setting changes per year.
+The P1P2 bus is much slower than UDP or Serial, therefore incoming commands are temporarily stored in a queue (circular buffer). In order to improve write reliability, Arduino performs multiple checks. On the lower level, writing to bus is verified by detecting possible bus collisions and reading back the data we have sent to the bus. On the higher level, commands are verified by waiting for "acknowledgement" from the main controller. In some packet types (0x35 and 0x36) the main controller "echoes" the new parameter value it has received from external controller (please note that this verification mechanism could be product dependent - further research needed).
 
 Arduino adapter communicates with the main controller (user interface), rather than the heat pump itself. Also, the program goes to great lengths to avoid bus collision with packets sent by other devices on the bus (by the heat pump, main controller, other external controllers). Yet be aware: hic sunt leones and you are on your own. **No guarantees, use this program at your own risk.** Remember that you can damage or destroy your (expensive) heat pump. Be careful and watch for errors in the output. I also recommend reading documentation provided by the author of the library: https://github.com/Arnold-n/P1P2Serial
 
 ## Settings
 
-Specify network parameters in P1P2-UDP_NetConfig.h file. Random MAC address is generated and stored in EEPROM.
+Specify network parameters in P1P2-UDP_NetConfig.h file. Random MAC address is generated and stored in Arduino's EEPROM.
 
 You can also configure the behaviour of this program in P1P2-UDP_Config.h file, especially:
 
 * format of UDP input and output. Choose between HEX String or raw HEX.
 * range of packet types which will be forwarded via UDP or Serial
-* memory size for storing packet data (program forwards a packet only if it contains new or changed data)
+* memory size for storing packet data (program forwards a packet to Serial and UDP only if it contains new or changed data) 
+* memory size for storing commands (program writes a command to the P1P2 bus only if it contains new or changed parameter value)
 * various timeouts
 
 ## Error codes
