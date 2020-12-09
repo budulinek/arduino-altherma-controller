@@ -234,7 +234,7 @@ void setup() {
   memset(cmd35History, 0xFF, sizeof(cmd35History));
   memset(cmd36History, 0xFF, sizeof(cmd36History));
   memset(cmd3AHistory, 0xFF, sizeof(cmd3AHistory));
-   
+
   // Restart: Device restarted, possible power failure.
   error(0xFF);
   dataTimeout.start(DATA_TIMEOUT);
@@ -611,12 +611,15 @@ void recvBus()
               d = PACKET_30_DELAY;
               newWB = true;
               break;
-            case 0x31 : // in: 15 byte; out: 15 byte; out pattern is copy of in pattern except for 2 bytes RB[7] RB[8]; function partly date/time, partly unknown
+            case 0x31 : // in: 15 byte; out: 15 byte; out pattern is copy of in pattern except for 2 bytes WB[7] and WB[9]; function partly date/time, partly unknown
               for (w = 3; w < n; w++) WB[w] = RB[w];
-              // Do not pretend to be a LAN adapter, because after unit restart it complaints about "data not in sync"
-              //              WB[7] = 0x08; // product type for LAN adapter?
-              WB[8] = 0xB4; // ??
-              WB[9] = 0x10; // ??
+              // WB[7] and WB[9] probably simulate LAN addapter
+              if (RB[7] == 0x01) {
+                WB[7] = 0x08;
+              } else if (RB[7] == 0x81) {
+                WB[7] = 0x88;
+              }
+              WB[9] = 0x10; // ?? 
               newWB = true;
               break;
             case 0x32 : // in: 19 byte: out 19 byte, out is copy in
@@ -713,7 +716,7 @@ void recvBus()
                   int diffParVal = (int)((RB[i] << 8) | RB[i - 1]) - (int)((cmd36Queue[3] << 8) | cmd36Queue[2]);
                   if ((diffParNum == 1 || diffParNum == 4) && (diffParVal == 0 || diffParVal == -1)) cmdMatch = true;
                 }
-              if (cmdMatch || cmd36AttemptCnt == COMMANDS_ATTEMPTS) {
+                if (cmdMatch || cmd36AttemptCnt == COMMANDS_ATTEMPTS) {
                   cmd36AttemptCnt = 0;
                   if (!cmdMatch && !cmd36QueueNew.first()) {
                     // Command error: Command not acknowledged by the heat pump.
@@ -735,19 +738,25 @@ void recvBus()
               newWB = true;
               break;
             case 0x37 : // in: 23 byte; out 23 byte; 5-byte parameters; reply with FF
-            // not seen in EHVX08S23D6V
-            // seen in EHVX08S26CB9W (value: 00001001010100001001)
-            // seen in EHYHBX08AAV3 (could it be date?: 000013081F = 31 aug 2019)
-            // fallthrough
+              // not seen in EHVX08S23D6V
+              // seen in EHVX08S26CB9W (value: 00001001010100001001)
+              // seen in EHYHBX08AAV3 (could it be date?: 000013081F = 31 aug 2019)
+              for (w = 3; w < n; w++) WB[w] = 0xFF;
+              newWB = true;
+              break;
             case 0x38 : // in: 21 byte; out 21 byte; 6-byte parameters; reply with FF
-            // parameter range 0000-001E; kwH/hour counters?
-            // not seen in EHVX08S23D6V
-            // seen in EHVX08S26CB9W
-            // seen in EHYHBX08AAV3
-            // A parameter consists of 6 bytes: ?? bytes for param nr, and ?? bytes for value/??
-            // fallthrough
+              // parameter range 0000-001E; kwH/hour counters?
+              // not seen in EHVX08S23D6V
+              // seen in EHVX08S26CB9W
+              // seen in EHYHBX08AAV3
+              // A parameter consists of 6 bytes: ?? bytes for param nr, and ?? bytes for value/??
+              for (w = 3; w < n; w++) WB[w] = 0xFF;
+              newWB = true;
+              break;
             case 0x39 : // in: 21 byte; out 21 byte; 6-byte parameters; reply with FF
-            // fallthrough
+              for (w = 3; w < n; w++) WB[w] = 0xFF;
+              newWB = true;
+              break;
             case 0x3A : // in: 21 byte; out 21 byte; 3-byte parameters; reply with FF
               for (byte i = 2 + CMD_3A_LEN; i < n; i += CMD_3A_LEN) {
                 if (RB[i - 2] == 0xFF && RB[i - 1] == 0xFF) break;    // 0xFF padding in packet
@@ -792,12 +801,16 @@ void recvBus()
               newWB = true;
               break;
             case 0x3B : // in: 23 byte; out 23 byte; 4-byte parameters; reply with FF
-            // not seen in EHVX08S23D6V
-            // seen in EHVX08S26CB9W
-            // seen in EHYHBX08AAV3
-            // fallthrough
+              // not seen in EHVX08S23D6V
+              // seen in EHVX08S26CB9W
+              // seen in EHYHBX08AAV3
+              for (w = 3; w < n; w++) WB[w] = 0xFF;
+              newWB = true;
+              break;
             case 0x3C : // in: 23 byte; out 23 byte; 5 or 10-byte parameters; reply with FF
-            // fallthrough
+              for (w = 3; w < n; w++) WB[w] = 0xFF;
+              newWB = true;
+              break;
             case 0x3D : // in: 21 byte; out: 21 byte; 6-byte parameters; reply with FF
               // parameter range 0000-001F; kwH/hour counters?
               // not seen in EHVX08S23D6V
@@ -806,7 +819,7 @@ void recvBus()
               for (w = 3; w < n; w++) WB[w] = 0xFF;
               newWB = true;
               break;
-            case 0x3E : // schedule related packet
+            case 0x3E : // error codes
               if (RB[3]) {
                 // 0x3E01, 0x3E02, ... in: 23 byte; out: 23 byte; out 40F13E01(even for higher) + 19xFF
                 // schedule-related
