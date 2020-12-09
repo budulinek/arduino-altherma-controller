@@ -233,7 +233,8 @@ void setup() {
   // Initialize storage for commands (we use 0xFF to indicate empty memory)
   memset(cmd35History, 0xFF, sizeof(cmd35History));
   memset(cmd36History, 0xFF, sizeof(cmd36History));
-
+  memset(cmd3AHistory, 0xFF, sizeof(cmd3AHistory));
+   
   // Restart: Device restarted, possible power failure.
   error(0xFF);
   dataTimeout.start(DATA_TIMEOUT);
