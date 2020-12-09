@@ -32,7 +32,7 @@ const byte savedPacketsRange[] = { 0x10, 0x16};   // Range of packet types which
 // Memory settings
 //
 #define SAVED_PACKETS_BYTES 200      // max #bytes for storing P1P2 bus packet payloads (should be >= 1; 196 bytes is sufficient for savedPacketsRange[] = { 0x10, 0x16})
-#define SAVED_COMMANDS 10            // max number of Serial or UDP commands stored in memory (at the moment only 0x36 commands are stored for hysteresis)
+#define SAVED_COMMANDS 15            // max number of Serial or UDP commands stored in memory (at the moment only 0x36 commands are stored for hysteresis)
 #define COMMANDS_QUEUE 10            // max number of Serial or UDP commands stored in queue (there are separate queues for each packet type 0x35, 0x36 and 0x3A)
 
 // Timeouts
