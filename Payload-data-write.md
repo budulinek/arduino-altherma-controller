@@ -53,6 +53,7 @@ All temperature values in this table are in 0.1 °C resolution.
 
 | Parameter number | Description            | Data type | Byte: description                                            |
 | ---------------- | ---------------------- | --------- | ------------------------------------------------------------ |
+| 00               | 12h/24h time format    | u8        | 0x00: 12h time format<br>0x01: 24h time format               |
 | 31               | Enable holiday ??      | u8        | ??                                                           |
 | 3B               | Decimal delimiter      | u8        | 0x00: dot<br/>0x01: comma                                    |
 | 3D               | Flow units             | u8        | 0x00: l/min<br/>0x01: GPM                                    |
