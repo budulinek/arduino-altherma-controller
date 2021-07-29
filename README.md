@@ -17,7 +17,9 @@ Daikin uses the two wire P1P2 bus for connection between the heat pump itself an
   * **Daikin Altherma Hybrid** (library tested with EHYHBX model)
   * possibly other models of the Altherma series
   * contributions and feedback welcomed (especially if you have new Altherma 3)
-* **DIY adapter** based on the MM1192 chip. You can find the schematics of the adapter in the repo of the library: https://github.com/Arnold-n/P1P2Serial
+* **custom-built P1P2 adapter for Arduino** - you can use two different chips (HBS Transceivers) in the adapter:
+  * **Mitsumi MM1192** (old chip but still available, for the schematics of the Arduino adapter see: https://github.com/Arnold-n/P1P2Serial/tree/master/circuits )
+  * **Maxim Integrated MAX22088** (new chip recently released by Maxim Integrated https://www.maximintegrated.com/en/products/interface/transceivers/MAX22088.html The chip looks very promising, but we do not have a schematic for the Arduino adapter yet. HELP NEEDED! If anyone can draw the schematic, that would be very much appreciated!)
 * **Arduino**. Tested with Uno and Mega, but other boards can be used.
 * **Ethernet Shield** with W5500 (or W5200, W5100) chipset.
 
