@@ -187,7 +187,7 @@ The **Packet Filter** page lists all packet types observed on the P1/P2 bus. Som
 This controller is mainly intended for the integration with Loxone home automation system.
 
 ## Loxone
-
+https://user-images.githubusercontent.com/6001151/232344216-52fd6a9e-4cc3-4d51-8f66-87266d960757.mp4
 ### 1. Wiring
 
 It is advised to connect/disconnect devices to the P1/P2 bus only if the power of all connected devices is switched off.
