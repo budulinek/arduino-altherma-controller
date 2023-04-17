@@ -157,7 +157,7 @@ This controller has a built-in webserver which allows you to configure the contr
 
 <img src="pics/daikin5.png" alt="05" style="zoom:100%;" />
 
-**Controller (Write to P1P2)**. 
+**Controller (Write to P1P2)**.
 * **Disabled** (safe). The controller is permanently disconnected from the P1/P2 bus, manual connection is not possible. The controller can not write to the P1/P2 bus but it still passively monitors the P1/P2 bus and sends (most) data from the heat pump via UDP. Disable the controller in case you experience persistent connection failures and/or write errors.
 * **Manual Connect** (default). Same as disabled, but manual connection to the P1/P2 bus is possible (see the P1P2 Status page). The controller does not reconnect to the P1/P2 bus after reboot or if the connection is interrupted (see **Connection Timeout**).
 * **Auto Connect** (advanced). The controller tries to (re)connect to the P1/P2 bus (to the main Daikin controller) after (re)start, or if the connection is interrupted (see **Connection Timeout**). No attempts to reconnect are made if the controller is **Not Supported by the Pump** (see the P1P2 Status page). Enable **Auto Connect** at your own risk and only after you have successfuly connected manually! **Check the P1P2 Status page for P1/P2 errors and monitor Daikin EEPROM Writes in order to minimize Daikin controller EEPROM wear!**
@@ -198,7 +198,38 @@ The controller can passively read (monitor) most data from the P1/P2 bus while b
 
 Optionally, set the **Remote IP** (= Loxone Miniserver IP) and enable **Only to/from Remote IP**. See [Remote IP Settings on the W5500 Chip](#remote-ip-settings-on-the-w5500-chip).
 
-### 3. Controller Settings
+### 3. Virtual UDP Input
+
+Download the Loxone template **[VIU_Daikin Altherma.xml](VIU_Daikin Altherma.xml)**. Open Loxone Config and in the periphery tree mark Virtual Inputs, then go to UDP Device Templates > Import Template ... in the menu bar:
+
+<img src="pics/loxone1.png" />
+
+Find the template you have downloaded and import the template. You should see Daikin Altherma with a number of Virtual UDP Input Commands. Change the Sender IP address (= IP of your Arduino controller) or UDP port if needed.
+
+<img src="pics/loxone2.png" />
+
+Just drag and drop individual inputs into your Loxone plan and you are ready to go. The only challenge are compound inputs containing multiple digital inputs in one byte. Names of these compound inputs end with `_B`. You need to connect these compound inputs to a **Binary Decoder** block and decode individual digital inputs according to the provided hint. Here is an example of `Valves_B` compound input:
+<img src="pics/loxone3.png" />
+
+### 4. Virtual Output
+
+Virtual Output will only work if the Arduino controller is connected to the P1/P2 bus (can write to the bus). Moreover, writeable command are device-specific. The Virtual Output Commands provided in the template may (with no guarantee) work only with **Daikin Altherma LT (EHVH(H/X/Z))** heat pumps. **<u>Use at your own risk!!!</u>**
+
+Download the Loxone template **[VO_Daikin Altherma LT.xml](VO_Daikin Altherma LT.xml)**. Open Loxone Config and in the periphery tree mark Virtual Outputs, then go to Device Templates > Import Template ... in the menu bar. Find the template you have downloaded and import the template. You should see Daikin Altherma LT with a number of Virtual Output Commands. Change the IP address or UDP port if needed:
+
+<img src="pics/loxone4.png" />
+
+There are 3 types of outputs available:
+
+* Analog outputs for target temperatures, setpoints etc. As expected, these inputs accept temperature in °C (float).
+* Digital outputs have `_OnOff` in their name. As expected: 0 = Off, 1 = On.
+* Discreet analog outputs for various operational modes. Always check the provided hints. Here is an example of Heating/Cooling operational mode:
+<img src="pics/loxone5.png" />
+
+### 5. Digital Outputs (Relays)
+
+
+
 
 
 ## Other Systems
