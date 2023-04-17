@@ -97,7 +97,7 @@ This controller has a built-in webserver which allows you to configure the contr
 
 **Date**. Shows internal date and time of the heat pump.
 
-**Daikin EEPROM Writes**. Every time you send **Write Packet** through the web interface or a commands via UDP, settings of the main Daikin controller (= controller on your heat pump) change and new values are written to its internal EEPROM. <ins>**Your main Daikin controller's EEPROM has a limited number of writes, so keep an eye on this counter in order to prevent EEPROM wear! It is adviced to do max 7000 writes per year (19 writes/day on average)**</ins>.
+**Daikin EEPROM Writes**. Every time you send **Write Packet** through the web interface or a commands via UDP, settings of the main Daikin controller (= controller on your heat pump) change and new values are written to its internal EEPROM. **<ins>Your main Daikin controller's EEPROM has a limited number of writes, so keep an eye on this counter in order to prevent EEPROM wear! It is adviced to do max 7000 writes per year (19 writes/day on average)</ins>**.
 * **Total**. Total number of writes made by this Arduino controller since its first connection to the heat pump.
 * **Average per Day**. Average number of write cycles, should be bellow 19. Calculated from internal date of the heat pump, so if you change the date in heat pump settings, it is recommended to reset the Daikin EEPROM Writes counter.
 * **Yesterday**. Number of writes made yesterday, updated at midnight. Should not significantly exceed average writes per day.
@@ -105,7 +105,7 @@ This controller has a built-in webserver which allows you to configure the contr
 **Write Packet**. Send a P1/P2 write command directly from web interface. For testing or reverse-engineering P1/P2 write commands. The format of the write command send via web interface is identical to the command sent via UDP:
 * **Type**. The first byte is the packet type. Only supported packet types are listed in the drop-down select menu.
 * **Param**. Parameter number, two bytes **<ins>in little endian format</ins>**! For example, parameter number 03 is inserted as `03` `00`.
-* **Value**. Parameter value, the number of bytes differs for various packet types. See PACKET_PARAM_VAL_SIZE in advanced settings for the correct number of bytes. Value is also **++in little endian format++**!
+* **Value**. Parameter value, the number of bytes differs for various packet types. See PACKET_PARAM_VAL_SIZE in advanced settings for the correct number of bytes. Value is also **<ins>in little endian format</ins>**!
 
 **P1P2 Packets**. Counters for packets read from the P1/P2 bus or written to the P1/P2 bus, counters for various read and write errors. If any of the counters rolls over the unsigned long maximum (4,294,967,295), all counters will reset to 0.
 * **Read OK**. Number of packets read from the P1/P2 bus, without errors. Not all of them are sent via UDP (see the **Packet Filter** settings). Packets are read from the P1/P2 bus (and sent via UDP) even if the controller is not connected to the P1/P2 bus.
@@ -200,22 +200,22 @@ Optionally, set the **Remote IP** (= Loxone Miniserver IP) and enable **Only to/
 
 ### 3. Virtual UDP Input
 
-Download the Loxone template **[VIU_Daikin Altherma.xml](VIU_Daikin Altherma.xml)**. Open Loxone Config and in the periphery tree mark Virtual Inputs, then go to UDP Device Templates > Import Template ... in the menu bar:
+Download the Loxone template **[VIU_Daikin Altherma.xml](VIU_Daikin Altherma.xml)**. Open Loxone Config and in the periphery tree mark `Virtual Inputs`, then go to UDP Device Templates > Import Template ... in the menu bar:
 
 <img src="pics/loxone1.png" />
 
-Find the template you have downloaded and import the template. You should see Daikin Altherma with a number of Virtual UDP Input Commands. Change the Sender IP address (= IP of your Arduino controller) or UDP port if needed.
+Find the template you have downloaded and import the template. You should see Daikin Altherma with a number of `Virtual UDP Input Commands`. Change the Sender IP address (= IP of your Arduino controller) or UDP port if needed.
 
 <img src="pics/loxone2.png" />
 
-Just drag and drop individual inputs into your Loxone plan and you are ready to go. The only challenge are compound inputs containing multiple digital inputs in one byte. Names of these compound inputs end with `_B`. You need to connect these compound inputs to a **Binary Decoder** block and decode individual digital inputs according to the provided hint. Here is an example of `Valves_B` compound input:
+Just drag and drop individual inputs into your Loxone plan and you are ready to go. The only challenge are compound inputs containing multiple digital inputs in one byte. Names of these compound inputs end with `_B`. You need to connect these compound inputs to a `Binary Decoder` block and decode individual digital inputs according to the provided hint. Here is an example of `Valves_B` compound input:
 <img src="pics/loxone3.png" />
 
 ### 4. Virtual Output
 
-Virtual Output will only work if the Arduino controller is connected to the P1/P2 bus (can write to the bus). Moreover, writeable command are device-specific. The Virtual Output Commands provided in the template may (with no guarantee) work only with **Daikin Altherma LT (EHVH(H/X/Z))** heat pumps. <ins>**Use at your own risk!!!**</ins>
+Virtual Output will only work if the Arduino controller is connected to the P1/P2 bus (can write to the bus). Moreover, writeable command are device-specific. The Virtual Output Commands provided in the template may (with no guarantee) work only with **Daikin Altherma LT (EHVH(H/X/Z))** heat pumps. **<ins>Use at your own risk!!!</ins>**
 
-Download the Loxone template **[VO_Daikin Altherma LT.xml](VO_Daikin Altherma LT.xml)**. Open Loxone Config and in the periphery tree mark Virtual Outputs, then go to Device Templates > Import Template ... in the menu bar. Find the template you have downloaded and import the template. You should see Daikin Altherma LT with a number of Virtual Output Commands. Change the IP address or UDP port if needed:
+Download the Loxone template **[VO_Daikin Altherma LT.xml](VO_Daikin Altherma LT.xml)**. Open Loxone Config and in the periphery tree mark `Virtual Outputs`, then go to Device Templates > Import Template ... in the menu bar. Find the template you have downloaded and import the template. You should see Daikin Altherma LT with a number of `Virtual Output Commands`. Change the IP address or UDP port if needed:
 
 <img src="pics/loxone4.png" />
 
@@ -226,10 +226,24 @@ There are 3 types of outputs available:
 * Discreet analog outputs for various operational modes. Always check the provided hints. Here is an example of Heating/Cooling operational mode:
 <img src="pics/loxone5.png" />
 
+If you want to control your heat pump through Loxone App (just like I did in the short video above) or Loxone Web Interface, use the `EIB push-button` block. It has the same functionality as a normal push-button but in addition has the State (S) input which can forward the status of a heat pump actuator without triggering an action on the output. As a result, you can have a smooth two-directional communication between the main Daikin controller and the Loxone App. Here you have a solution for the DHW On/Off push-button and the DHW Boost push button. Please note that the DHW_OnOff_B input is a compound input which needs to be decoded with `Binary Decoder`:
+<img src="pics/loxone6.png" />
 ### 5. Digital Outputs (Relays)
 
+By default, the main Daikin controller (the user interface mounted at the indoor unit) acts as a thermostat. It has a temperature sensor and can control the heat pump by comparing the actual room temperature with target room temperature. This is not very practical solution if the main Daikin controller is located at the unit which sits somewhere in a separate boiler room.
 
+Fortunately, 1) Daikin Altherma allows you to connect an external thermostat and 2) Loxone Miniserver can act as an external thermostat.
 
+**Wiring**. External thermostat is an external 230V relay operated by a temperature sensor (+ some scheduling logic). It controls the heat pump by opening and closing a **<ins>230V circuit!</ins>** **<ins>Danger of death!</ins>** Always unplug your heat pump from the mains before connecting wires and consult your heat pump's Installation manual in order to locate the correct wiring terminal. **<ins>Proceed at your own risk!</ins>**  If you know what you are doing, connect the correct wiring terminal of your heat pump (on my Altherma I have used the X2M wiring terminal) to Loxone Miniserver relays. You can use separate relays for heating and cooling and separate relays for main LWT zone and additional LWT zone. Therefore, depending on the complexity of your heating/cooling system, up to 4 external relays can be used.
+
+**Heat Pump Configuration**. Enable external thermostat on your heat pump. Consult your installation manual. In my case I have the settings here: `Installer settings > System layout > Standard > [A.2.1.7] Unit control method > Ext RT control`. If you want to use separate relays for heating and cooling, check also `Installer settings > System layout > Options > [A.2.2.4] Contact type main > H/C request`.
+
+**Loxone Config**. You can now connect your `Digital Outputs` (relays) directly to the `HVAC Controller` block:
+
+<img src="pics/loxone7.png" />
+It is quite simple. I have a `HVAC Controller` block which serves as a heating and cooling source for 7 `Intelligent Room Controllers` (see the "7 Objects Assigned" note at the bottom of the HVAC block). The HVAC block needs to know the outdoor temperature, so I feed the `Temperature_Outside_Stabilized` measured by the heat pump to the HVAC block. Loxone Miniserver act as an external thermostat, I have wired 3 digital outputs (relays) to the wiring terminal of the heat pump, even though I only use two of them. Relay `Ext_Therm_Main_Heating` triggers heating on the main LWT zone (floor heating), relay `Ext_Therm_Add_Cooling` triggers cooling on the additional LWT zone (ceiling cooling panels). I do not use my floor for cooling. Both digital outputs (relays) are connected to the appropriate connections of the HVAC block.
+
+**Application Notes**. I recommend using **<ins>both</ins>** the Arduino controller (Virtual UDP Outputs) and relays on the Loxone Miniserver (Digital Outputs) for controlling the heat pump. Each of them is doing a different thing, the two do not replace but complement each other. The **<ins>controller</ins>** (Virtual UDP Outputs) allows you to remotely change user settings (Quiet Mode, Schedules), turn the DHW on/off, change target temperatures (DHW, LWT), etc. Whenever you use the Virtual UDP Outputs, data are written to the main Daikin controller, wearing its EEPROM! So use sparingly. Loxone Miniserver as **<ins>external thermostat</ins>** (Digital Outputs - Relays) allows you to send heating or cooling requests. No data are written to the Daikin EEPROM, though you do wear out your Loxone relay a bit. Let's compare. The `LWT_Control_OnOff` (Virtual UDP Output) completely shuts down heating (though DHW still works). The valves are shut and the heat pump ignores any heating requests from the internal thermostat (main Daikin controller) or the external thermostat (Loxone relays). On the other side, the `Ext_Therm_Main_Heating` (Digital Output - Relay) only sends a request for heating. When the relay is closed (DO = 1), the heat pump knows there is a demand for heating, the circulation pump is running and the compressor maintains the leaving water temperature at a certain level. When the relay is open (DO = 0), no heat is produced but the heat pump is in a stand-by mode, waiting for a new heating request.
 
 
 ## Other Systems
