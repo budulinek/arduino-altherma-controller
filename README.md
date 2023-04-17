@@ -97,14 +97,14 @@ This controller has a built-in webserver which allows you to configure the contr
 
 **Date**. Shows internal date and time of the heat pump.
 
-**Daikin EEPROM Writes**. Every time you send **Write Packet** through the web interface or a commands via UDP, settings of the main Daikin controller (= controller on your heat pump) change and new values are written to its internal EEPROM. **++Your main Daikin controller's EEPROM has a limited number of writes, so keep an eye on this counter in order to prevent EEPROM wear! It is adviced to do max 7000 writes per year (19 writes/day on average)++**.
+**Daikin EEPROM Writes**. Every time you send **Write Packet** through the web interface or a commands via UDP, settings of the main Daikin controller (= controller on your heat pump) change and new values are written to its internal EEPROM. <ins>**Your main Daikin controller's EEPROM has a limited number of writes, so keep an eye on this counter in order to prevent EEPROM wear! It is adviced to do max 7000 writes per year (19 writes/day on average)**</ins>.
 * **Total**. Total number of writes made by this Arduino controller since its first connection to the heat pump.
 * **Average per Day**. Average number of write cycles, should be bellow 19. Calculated from internal date of the heat pump, so if you change the date in heat pump settings, it is recommended to reset the Daikin EEPROM Writes counter.
 * **Yesterday**. Number of writes made yesterday, updated at midnight. Should not significantly exceed average writes per day.
 
 **Write Packet**. Send a P1/P2 write command directly from web interface. For testing or reverse-engineering P1/P2 write commands. The format of the write command send via web interface is identical to the command sent via UDP:
 * **Type**. The first byte is the packet type. Only supported packet types are listed in the drop-down select menu.
-* **Param**. Parameter number, two bytes **++in little endian format++**! For example, parameter number 03 is inserted as `03` `00`.
+* **Param**. Parameter number, two bytes **<ins>in little endian format</ins>**! For example, parameter number 03 is inserted as `03` `00`.
 * **Value**. Parameter value, the number of bytes differs for various packet types. See PACKET_PARAM_VAL_SIZE in advanced settings for the correct number of bytes. Value is also **++in little endian format++**!
 
 **P1P2 Packets**. Counters for packets read from the P1/P2 bus or written to the P1/P2 bus, counters for various read and write errors. If any of the counters rolls over the unsigned long maximum (4,294,967,295), all counters will reset to 0.
@@ -213,7 +213,7 @@ Just drag and drop individual inputs into your Loxone plan and you are ready to 
 
 ### 4. Virtual Output
 
-Virtual Output will only work if the Arduino controller is connected to the P1/P2 bus (can write to the bus). Moreover, writeable command are device-specific. The Virtual Output Commands provided in the template may (with no guarantee) work only with **Daikin Altherma LT (EHVH(H/X/Z))** heat pumps. **<u>Use at your own risk!!!</u>**
+Virtual Output will only work if the Arduino controller is connected to the P1/P2 bus (can write to the bus). Moreover, writeable command are device-specific. The Virtual Output Commands provided in the template may (with no guarantee) work only with **Daikin Altherma LT (EHVH(H/X/Z))** heat pumps. <ins>**Use at your own risk!!!**</ins>
 
 Download the Loxone template **[VO_Daikin Altherma LT.xml](VO_Daikin Altherma LT.xml)**. Open Loxone Config and in the periphery tree mark Virtual Outputs, then go to Device Templates > Import Template ... in the menu bar. Find the template you have downloaded and import the template. You should see Daikin Altherma LT with a number of Virtual Output Commands. Change the IP address or UDP port if needed:
 
