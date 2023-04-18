@@ -280,17 +280,17 @@ Not everything could fit into the limited flash memory of Arduino Nano / Uno. If
 
 Here is a brief comparison with other solutions (as of April 2023):
 
-| **Project** | **[budulinek/<br>arduino-altherma-controller](https://github.com/budulinek/arduino-altherma-controller)** | **[Arnold-n/<br>P1P2Serial](https://github.com/Arnold-n/P1P2Serial)** | **[raomin/ESPAltherma](https://github.com/raomin/ESPAltherma)** | **[tadasdanielius/<br>daikin_altherma](https://github.com/tadasdanielius/daikin_altherma)** | **[speleolontra/<br>daikin_residential_altherma](https://github.com/speleolontra/daikin_residential_altherma)** ||
-|------------------------------------|----------------------------------------------------------------------------------------------------|----------------------------------------------------------|-------------------------------------------------------------------------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------|-------------------------------------------|
-| **Hardware** | • Arduino Uno/Mega<br>• Ethernet Shield (W5100/W5200/W5500)<br>• Custom P1P2 Uno adapter | • Custom all-in-one board | • M5StickC (or any ESP32/ESP8266 board)<br> • external relay (optional) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with OLD firmware) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with NEW firmware) | • Daikin WLAN adapter<br>(BRP069A78) |
-| **Programable MCUs** | 1 (ATmega 328P) | 2 (ATmega 328P + ESP8266 ) | 1 (ESP32/ESP8266) | --- | --- ||
+| **Project** | **[budulinek/<br>arduino-altherma-controller](https://github.com/budulinek/arduino-altherma-controller)** | **[Arnold-n/<br>P1P2Serial](https://github.com/Arnold-n/P1P2Serial)** | **[raomin/<br>ESPAltherma](https://github.com/raomin/ESPAltherma)** | **[tadasdanielius/<br>daikin_altherma](https://github.com/tadasdanielius/daikin_altherma)** | **[speleolontra/<br>daikin_residential_altherma](https://github.com/speleolontra/daikin_residential_altherma)** ||
+|------------------------------------|------------------------------------------------------------------------------------|----------------------------------------------------------|-------------------------------------------------------------------------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------|-------------------------------------------|
+| **Hardware** | • Arduino Uno/Mega<br>• Ethernet Shield<br>• Custom P1P2 Uno adapter | • Custom all-in-one board | • M5StickC (or any ESP32/ESP8266 board)<br> • external relay (optional) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with OLD firmware) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with NEW firmware) | • Daikin WLAN adapter<br>(BRP069A78) |
+| **Programable MCUs** | 1<br>ATmega328P | 2<br>ATmega328P + ESP8266 | 1<br>ESP32/8266 | --- | --- ||
 | **Connection to Daikin Altherma**  | P1/P2 bus | P1/P2 bus | X10A serial port | P1/P2 bus | P1/P2 bus | dedicated slot |
 | **Interface** | • Ethernet | • WiFi<br>• Ethernet (optional) | • WiFi | • Ethernet | • Ethernet | • WiFi |
 | **Local LAN or Cloud** | Local | Local | Local | Local | Cloud ||
-| **Controller configuration** | • web interface<br>• sketch (during compile) | • console<br>• sketch (during compile) | • sketch (during compile) | • web interface | • web interface ||
+| **Controller configuration** | • web interface<br>• sketch | • console<br>• sketch | • sketch | • web interface | • web interface ||
 | **OTA upgrades** | No | Yes | Yes | Yes | Yes ||
 | **Read data from Daikin Altherma** | Yes | Yes | Yes | Limited | Limited ||
-| **Control Daikin Altherma** | Yes | Yes | Limited (with external relay) | Yes | Yes ||
+| **Control Daikin Altherma** | Yes | Yes | Limited | Yes | Yes ||
 | **Communication protocol** | UDP | MQTT | MQTT | Websockets | Websockets ||
 | **Data format** | HEX | JSON | JSON | JSON | JSON ||
 | **Integration with** | • Loxone<br>• other systems (via UDP-HEX) | • Home Assistant<br>• other systems (via MQTT-JSON) | • Home Assistant<br>• other systems (via MQTT-JSON) | • Home Assistant | • Home Assistant ||
