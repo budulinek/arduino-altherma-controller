@@ -298,5 +298,3 @@ Here is a brief comparison with other solutions (as of April 2023):
 ## Version history
 
 For version history see:
-
-https://github.com/budulinek/arduino-modbus-rtu-tcp-controller/blob/master/arduino-modbus-rtu-tcp-controller/arduino-modbus-rtu-tcp-controller.ino#L27
