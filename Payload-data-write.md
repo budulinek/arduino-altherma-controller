@@ -27,13 +27,19 @@ Remember that both parameter number and value use **<ins>little endian bytes ord
 Here are few examples of commands you can send via UDP or Serial:
 
 `35400001`	= turn DHW on<br>
-`35`: packet type<br>
-`4000`: parameter number 0040<br>
+`35`: packet type 0x35<br>
+`4000`: parameter number 40<br>
 `01`: parameter value 1
 
-`360300D601`	= set DHW setpoint to 47°C
+`360300D601`	= set DHW setpoint to 47°C<br>
+`36`: packet type 0x36<br>
+`0300`: parameter number 03<br>
+`D601`: parameter value 01D6 HEX = 470 DEC
 
-`360800F6FF`	= set LWT setpoint deviation to -1°C
+`360800F6FF`	= set LWT setpoint deviation to -1°C<br>
+`36`: packet type 0x36<br>
+`0800`: parameter number 03<br>
+`F6FF`: parameter value FFF6 HEX = -10 DEC
 
 The P1P2 bus is much slower than UDP or Serial, therefore incoming commands are temporarily stored in a queue (circular buffer).
 
