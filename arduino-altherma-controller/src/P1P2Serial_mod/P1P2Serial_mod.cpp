@@ -75,7 +75,7 @@
 
 #ifdef __AVR_ATmega2560__
 
-#error ATmega2560 code has not been tested, use with caution.
+#warning ATmega2560 code has not been tested, use with caution.
 
 // RW using timer5
 #define INPUT_CAPTURE_PIN               48 // PL1
