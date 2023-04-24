@@ -1,15 +1,30 @@
 # Arduino Altherma UDP Controller
 
-## What is it good for?
+* [What is it good for?](#what-is-it-good-for)
+* [Technical specifications](#technical-specifications)
+* [Hardware](#hardware)
+* [Firmware](#firmware)
+* [Settings](#settings)
+  - [System Info](#system-info)
+  - [P1P2 Status](#p1p2-status)
+  - [IP Settings](#ip-settings)
+  - [TCP/UDP Settings](#tcpudp-settings)
+  - [P1P2 Settings](#p1p2-settings)
+  - [Packet Filter](#packet-filter)
+* [Integration](#integration)
+  - [Loxone](#loxone)
+  - [Other systems](#other-systems)
+* [Limitations and known issues](#limitations-and-known-issues)
+* [Comparison with other solutions](#comparison-with-other-solutions)
+* [Version history](#version-history)
+
+# What is it good for?
 
 Allows you to connect your Daikin Altherma heat pump (P1/P2 bus) to a home automation system (such as Loxone). This controller reads data from the P1/P2 bus on your Daikin Altherma and forwards them via ethernet UDP. You can also control your Daikin Altherma by sending commands via ethernet UDP.
 
-The controller itself can be configured through built-in web interface, which alsoallows you to monitor the P1/P2 connection and count errors. All settings and P1/P2 statistics are stored in EEPROM. This program implements P1P2Serial library (https://github.com/Arnold-n/P1P2Serial).
+The controller has a built-in web interface. You can use this web interface to configure the controller itself, monitor the status of the controller's connection to the P1/P2 bus and check error counters. All settings and P1/P2 statistics are stored in EEPROM. This program implements P1P2Serial library (https://github.com/Arnold-n/P1P2Serial).
 
-
-
-
-## What are the technical specifications?
+# Technical specifications
 
 * this controller is compatible with Daikin Altherma heat pumps (E-series), including:
   - Altherma Hybrid
@@ -39,9 +54,9 @@ The controller itself can be configured through built-in web interface, which al
 # Hardware
 Get the hardware and connect together:
 
-* **Arduino Uno or Mega**.
+* **Arduino Uno**.
 
-* **Ethernet shield (with W5100, W5200 or W5500 chip)**. The ubiquitous W5100 shield for Uno/Mega is sufficient. !!! ENC28J60 will not work !!!
+* **Ethernet shield (with W5100, W5200 or W5500 chip)**. The ubiquitous W5100 shield for Uno is sufficient. !!! ENC28J60 will not work !!!
 * **Custom P1P2 Uno adapter**. You can [solder your own adapter](https://github.com/Arnold-n/P1P2Serial/tree/main/circuits#p1p2-adapter-as-arduino-uno-hat) or buy one from Arnold-n (his e-mail address can be found on line 3 of his library [P1P2Serial.cpp](https://github.com/Arnold-n/P1P2Serial/blob/main/P1P2Serial.cpp)).
 
 Here is my HW setup (cheap Arduino Uno clone + W5500 Ethernet shield from Keyestudio + custom P1P2 Uno adapter):
@@ -85,13 +100,13 @@ This controller has a built-in webserver which allows you to configure the contr
 * **Connecting...** The controller is in the process of connecting to the P1/P2 bus (to the main Daikin controller).
 * **Connected**. The controller is connected to the P1/P2 bus (to the main Daikin controller). Once connected, the controller can also:
   - show Altherma model in **Daikin Unit**
-  - periodically request, read (and send via UDP) some additional data (counters)
+  - periodically request, read (and send via UDP) Altherma counters
   - control Altherma by sending **Write Packet** through the web interface
   - control Altherma by sending commands via UDP
 * **Not Supported by the Pump**. The controller failed to connect to the P1/P2 bus (to the main Daikin controller) because it is not supported by the heat pump. The controller will not reconnect even if it is in the Auto Connect mode (see P1P2 Settings) but the user can still try to (re)connect manually. The **Not Supported by the Pump** status occurs when:
-  - the heat pump (the main Daikin controller) does not support external controllers
-  - one external controller (for example Daikin LAN controller) is already connected to the P1/P2 bus and the heat pump does not support second external controller
-  - two external controllers are already connected
+  - The heat pump (the main Daikin controller) does not support external controllers.
+  - One external controller (for example Daikin LAN controller) is already connected to the P1/P2 bus and the heat pump does not support second external controller. The number of supported external controllers depends on the model of the Daikin unit.
+  - Two external controllers are already connected. This Arduino controller can not connect to the P1/P2 bus if there are already 2 or more external controllers (regardless of whether the Daikin unit supports more external controllers or not).
 
 **Daikin Unit**. Shows the name of your Altherma indoor unit.
 
@@ -200,7 +215,7 @@ Optionally, set the **Remote IP** (= Loxone Miniserver IP) and enable **Only to/
 
 ### 3. Virtual UDP Input
 
-Download the Loxone template **[VIU_Daikin Altherma.xml](VIU_Daikin Altherma.xml)**. Open Loxone Config and in the periphery tree mark `Virtual Inputs`, then go to UDP Device Templates > Import Template ... in the menu bar:
+Download the Loxone template **[VIU_Daikin Altherma.xml](https://github.com/budulinek/arduino-altherma-controller/blob/main/VIU_Daikin%20Altherma.xml)**. Open Loxone Config and in the periphery tree mark `Virtual Inputs`, then go to UDP Device Templates > Import Template ... in the menu bar:
 
 <img src="pics/loxone1.png" />
 
@@ -208,25 +223,28 @@ Find the template you have downloaded and import the template. You should see Da
 
 <img src="pics/loxone2.png" />
 
-Just drag and drop individual inputs into your Loxone plan and you are ready to go. The only challenge are compound inputs containing multiple digital inputs in one byte. Names of these compound inputs end with `_B`. You need to connect these compound inputs to a `Binary Decoder` block and decode individual digital inputs according to the provided hint. Here is an example of `Valves_B` compound input:
+Just drag and drop individual inputs into your Loxone plan and you are ready to go. There are only two challenges:
+* LWT deviations `Deviation_LWT_<Zone>_<Heating/Cooling>` are split into two inputs carrying positive values `_Pos` and negative values `_Neg`.
+* There are compound inputs containing multiple digital inputs in one byte. Names of these compound inputs end with `_B`. You need to connect these compound inputs to a `Binary Decoder` block and decode individual digital inputs according to the provided hint. Here is an example of `Valves_B` compound input:
+
 <img src="pics/loxone3.png" />
 
 ### 4. Virtual Output
 
 Virtual Output will only work if the Arduino controller is connected to the P1/P2 bus (can write to the bus). Moreover, writeable command are device-specific. The Virtual Output Commands provided in the template may (with no guarantee) work only with **Daikin Altherma LT (EHVH(H/X/Z))** heat pumps. **<ins>Use at your own risk!!!</ins>**
 
-Download the Loxone template **[VO_Daikin Altherma LT.xml](VO_Daikin Altherma LT.xml)**. Open Loxone Config and in the periphery tree mark `Virtual Outputs`, then go to Device Templates > Import Template ... in the menu bar. Find the template you have downloaded and import the template. You should see Daikin Altherma LT with a number of `Virtual Output Commands`. Change the IP address or UDP port if needed:
+Download the Loxone template **[VO_Daikin Altherma LT.xml](https://github.com/budulinek/arduino-altherma-controller/blob/main/VO_Daikin%20Altherma%20LT.xml)**. Open Loxone Config and in the periphery tree mark `Virtual Outputs`, then go to Device Templates > Import Template ... in the menu bar. Find the template you have downloaded and import the template. You should see Daikin Altherma LT with a number of `Virtual Output Commands`. Change the IP address or UDP port if needed:
 
 <img src="pics/loxone4.png" />
 
 There are 3 types of outputs available:
 
-* Analog outputs for target temperatures, setpoints etc. As expected, these inputs accept temperature in °C (float).
+* Analog outputs for target temperatures, setpoints etc. As expected, these outputs accept temperature in °C (float).
 * Digital outputs have `_OnOff` in their name. As expected: 0 = Off, 1 = On.
-* Discreet analog outputs for various operational modes. Always check the provided hints. Here is an example of Heating/Cooling operational mode:
+* Discreet analog outputs for various operational modes. These outputs accept discreet integer values - see the provided hints. Here is an example of Heating/Cooling operational mode:
 <img src="pics/loxone5.png" />
 
-If you want to control your heat pump through Loxone App (just like I did in the short video above) or Loxone Web Interface, use the `EIB push-button` block. It has the same functionality as a normal push-button but in addition has the State (S) input which can forward the status of a heat pump actuator without triggering an action on the output. As a result, you can have a smooth two-directional communication between the main Daikin controller and the Loxone App. Here you have a solution for the DHW On/Off push-button and the DHW Boost push button. Please note that the DHW_OnOff_B input is a compound input which needs to be decoded with `Binary Decoder`:
+If you want to control your heat pump through Loxone App (just like I did in the short video above) or Loxone Web Interface, use the `EIB push-button` block. It has the same functionality as a normal push-button but in addition has the State (S) input which can forward the status of a heat pump settings without triggering an action on the output. As a result, you can have a smooth two-directional communication between the main Daikin controller and the Loxone App. Here you have a solution for the DHW On/Off push-button and the DHW Boost push button. Please note that the DHW_OnOff_B input is a compound input which needs to be decoded with `Binary Decoder`:
 <img src="pics/loxone6.png" />
 ### 5. Digital Outputs (Relays)
 
@@ -234,7 +252,7 @@ By default, the main Daikin controller (the user interface mounted at the indoor
 
 Fortunately, 1) Daikin Altherma allows you to connect an external thermostat and 2) Loxone Miniserver can act as an external thermostat.
 
-**Wiring**. External thermostat is an external 230V relay operated by a temperature sensor (+ some scheduling logic). It controls the heat pump by opening and closing a **<ins>230V circuit!</ins>** **<ins>Danger of death!</ins>** Always unplug your heat pump from the mains before connecting wires and consult your heat pump's Installation manual in order to locate the correct wiring terminal. **<ins>Proceed at your own risk!</ins>**  If you know what you are doing, connect the correct wiring terminal of your heat pump (on my Altherma I have used the X2M wiring terminal) to Loxone Miniserver relays. You can use separate relays for heating and cooling and separate relays for main LWT zone and additional LWT zone. Therefore, depending on the complexity of your heating/cooling system, up to 4 external relays can be used.
+**Wiring**. External thermostat is an external 230V relay operated by a temperature sensor (+ some scheduling logic). It controls the heat pump by opening and closing a **<ins>230V circuit!</ins>** **<ins>Danger of death!</ins>** Always unplug your heat pump from the mains before connecting wires and consult your heat pump's Installation manual in order to locate the correct wiring terminal. **<ins>Proceed at your own risk!</ins>**  If you know what you are doing, connect the correct wiring terminal of your heat pump (on my Altherma I have used the X2M wiring terminal) to Loxone Miniserver relays. You can use separate relays for heating and cooling and separate relays for main LWT zone and additional LWT zone. Therefore, up to 4 external relays can be used depending on the complexity of your heating/cooling system.
 
 **Heat Pump Configuration**. Enable external thermostat on your heat pump. Consult your installation manual. In my case I have the settings here: `Installer settings > System layout > Standard > [A.2.1.7] Unit control method > Ext RT control`. If you want to use separate relays for heating and cooling, check also `Installer settings > System layout > Options > [A.2.2.4] Contact type main > H/C request`.
 
@@ -242,24 +260,55 @@ Fortunately, 1) Daikin Altherma allows you to connect an external thermostat and
 
 <img src="pics/loxone7.png" />
 
-It is quite simple. I have a `HVAC Controller` block which serves as a heating and cooling source for 7 `Intelligent Room Controllers` (see the "7 Objects Assigned" note at the bottom of the HVAC block). The HVAC block needs to know the outdoor temperature, so I have connected the `Temperature_Outside_Stabilized` measured by the heat pump. I have wired 3 digital outputs (relays) to the wiring terminal of the heat pump, even though I only use 2 of them. Relay `Ext_Therm_Main_Heating` triggers heating on the main LWT zone (floor heating), relay `Ext_Therm_Add_Cooling` triggers cooling on the additional LWT zone (ceiling cooling panels). I do not use my floor for cooling.
+It is quite simple. I have a `HVAC Controller` block which serves as a heating and cooling source for 7 `Intelligent Room Controllers` (see the "7 Objects Assigned" note at the bottom of the HVAC block). The HVAC block needs to know the outdoor temperature, so I have connected the `Temperature_Outside_Stabilized` measured by the heat pump. Relay `Ext_Therm_Main_Heating` triggers heating on the main LWT zone (underfloor heating), relay `Ext_Therm_Add_Cooling` triggers cooling on the additional LWT zone (ceiling cooling panels). `Ext_Therm_Main_Cooling` is not connected because I do not use floor for cooling.
 
-**Application Notes**. I recommend using **<ins>both</ins>** the Arduino controller (Virtual UDP Outputs) and relays on the Loxone Miniserver (Digital Outputs) for controlling the heat pump. Each of them is doing a different thing, the two do not replace but complement each other. The **<ins>controller</ins>** (Virtual UDP Outputs) allows you to remotely change user settings (Quiet Mode, Schedules), turn the DHW on/off, change target temperatures (DHW, LWT), etc. Whenever you use the Virtual UDP Outputs, data are written to the main Daikin controller, wearing its EEPROM! So use sparingly. Loxone Miniserver as **<ins>external thermostat</ins>** (Digital Outputs - Relays) allows you to send heating or cooling requests. No data are written to the Daikin EEPROM, though you do wear out your Loxone relay a bit. Let's compare. The `LWT_Control_OnOff` (Virtual UDP Output) completely shuts down heating (though DHW still works). The valves are shut and the heat pump ignores any heating requests from the internal thermostat (main Daikin controller) or the external thermostat (Loxone relays). On the other side, the `Ext_Therm_Main_Heating` (Digital Output - Relay) only sends a request for heating. When the relay is closed (DO = 1), the heat pump knows there is a demand for heating, the circulation pump is running and the compressor maintains the leaving water temperature at a certain level. When the relay is open (DO = 0), no heat is produced but the heat pump is in a stand-by mode, waiting for a new heating request.
+### 6. Application Recommendations
 
+**Use relays for heating/cooling requests**. Your Loxone automation system can now control the Altherma heat pump through 2 sets of outputs: Virtual Output Commands (UDP) and Digital Outputs (Relays). Each of them is doing a different thing, the two do not replace but complement each other: 
+* **Virtual Output Commands** are sent (via UDP) to the Arduino controller and then (via P1/P2 bus) to the main Daikin controller at your indoor unit. These commands allow you to remotely change user settings (Quiet Mode, Schedules), target temperatures (DHW, LWT), turn the DHW on/off, etc. **<ins>Whenever you use Virtual Output Commands (UDP), new settings are stored in the main Daikin controller, wearing its EEPROM!</ins>** Use these outputs sparingly. For example, the `LWT_Control_OnOff` command completely shuts down heating (though DHW still works). Valves are closed and the heat pump ignores any heating/cooling requests from the internal thermostat (main Daikin controller) or from the external thermostat (Loxone relays). Use this output only if you want to stop the heat pump for longer periods of time (such as holidays).
+* **Digital Outputs** allow you to send heating / cooling requests by closing Loxone Miniserver relays. These relays are connected directly to the heat pump's wiring terminals, not to the main Daikin controller. No new data (settings) are stored in the main Daikin controller's EEPROM. You do wear out your Loxone relay a bit, but relays are easier (and cheaper) to replace than the internal EEPROM of your Daikin controller. Use relays for automated heating / cooling requests, they are meant to be used this way. For example (and in contrast to the LWT_Control_OnOff command mentioned above), the `Ext_Therm_Main_Heating` output only sends a request for heating. When the relay is closed (DO = 1), the heat pump knows there is a demand for heating, and starts compressor in order to maintain the leaving water temperature at a certain level. When the relay is open (DO = 0), compressor stops, no heat is produced but the heat pump remains in a stand-by mode, waiting for new heating request.
 
-## Other Systems
+**Adjust the heating curve**. Daikin Altherma heat pumps have a built-in heating curve (weather-dependent curve, equithermic curve). Heating curve means that the leaving water temperature (LWT) depends on weather (outdoor temperature).  Interestingly, Loxone also has a heating curve, integrated in the `Intelligent Temperature Controller` block. Here are your choices:
 
+* **Altherma heating curve**. Altherma heating curve (weather-dependent curve) can be enabled/disabled in installer settings. Consult your installation manual, in my case it is here: `Installer settings > Space operation > LWT settings > Main > [A.3.1.1.1] LWT setpoint mode`. By default, heating curve should be enabled (`Weather dep.`). Users can configure parameters of the heating curve (`User settings > Set weather dependent > Main > Set weather-dependent heating`). In this example, Altherma will use outdoor temperature to calculate the LWT, Loxone will only send heating requests through `Ext_Therm_Main_Heating` relay:
 
-# Limitations and Known Issues
+<img src="pics/loxone8.png" />
+
+* **Loxone heating curve**. Loxone heating curve is more advanced than Altherma heating curve, because Loxone uses more variables to calculate the LWT. Not just the outdoor temperature, but also the target room temperature, the difference between target and actual room temperatures, room heating phase / cooling phase. Moreover, Loxone can also adjust the target room temp (thus the requested LWT) based on schedule or presence of people. So, go ahead and completely disable your Altherma's heating curve (set the `LWT setpoint mode` to `Absolute`) and use the Loxone block `Intelligent Temperature Controller` (AQf - Flow Target Temperature) to calculate the LWT. Loxone will send heating requests through `Ext_Therm_Main_Heating` relay and requested leaving water temperature through `Target_Setpoint_LWT_Zone_Main` virtual UDP command. This is the most efficient way of controling your heat pump. The problem is that target LWT values calculated by Loxone change far too often (because outdoor temperature fluctuates throughout the day). Hysteresis setting in Arduino helps you reduce the frequency of LWT values sent to the heat pump, but the number of EEPROM writes will (probably) still exceed the limit (19 writes per day). You can give it a try but I do not recommend this choice.
+
+<img src="pics/loxone9.png" />
+
+* **Altherma heating curve + adjustments by Loxone**. The `Intelligent Temperature Controller` block can also output AQi - Flow Temperature Increase/Decrease. This increase/decrease is caused by the room temperature difference (see parameter G - Gain) and the target room temperature increase during heating phase (see parameter I - Target temperature increase). In other words, AQi is Loxone's adjustment to the weather-dependent target LWT. We can sent it to the heat pump through the `Deviation_LWT_Zone_Main` virtual UDP command. This is a compromise solution. We will let Altherma calculate the weather-dependent LWT (from the outdoor temperature) and Loxone will calculate the LWT adjustment (from the difference between target and actual room temperature). Since AQi does not change that often, we will have less EEPROM writes. You can try this choice, but:
+  - Set the parameter I - Target temperature increase to zero. Daikin user manual explicitly discourages users from increasing/decreasing the desired room temperature to speed up space heating/cooling. Use only the parameter G - Gain.
+  - Check the number of Daikin EEPROM Writes in the Arduino controller web interface. Make sure that average writes per day (and yesterday writes) remain bellow the limit (19 writes per day).
+
+<img src="pics/loxone10.png" />
+
+## Other systems
+
+#### Home Assistant
+
+Arduino Altherma UDP controller is not suitable for Home Assistant. As far as I know, it is difficult to parse hex UDP messages in HA. Check the table bellow and use another solution (or Node-RED as an intermediary).
+
+#### Node-RED
+
+Import and configure the **[node-red-contrib-buffer-parser](https://flows.nodered.org/node/node-red-contrib-buffer-parser)** package. See [Payload-data-read.md](Payload-data-read.md) how to parse UDP messages (read data from the heat pump). See [Payload-data-write.md](Payload-data-write.md) how to make UDP commands (write to the heat pump).
+
+You can use Node RED as:
+* a rudimentary automation system on its own
+* an intermediary between the Arduino controller and other home automation system
+* an intermediary between the Arduino controller and a time series database and visualisation tool (InfluxDB + Grafana)
+
+# Limitations and known issues
 
 ## Portability
 
-The code was tested on Arduino Uno and Mega, ethernet chips W5100 and W5500. It may work on other platforms, but:
+The code was tested on Arduino Uno, ethernet chips W5100 and W5500. It may work on other platforms, but:
 
 * The random number generator (for random MAC) is seeded through watch dog timer interrupt - this will work only on Arduino (credits to https://sites.google.com/site/astudyofentropy/project-definition/timer-jitter-entropy-sources/entropy-library/arduino-random-seed)
 * The restart function will also work only on Arduino.
 
-## Remote IP Settings on the W5500 Chip
+## Remote IP settings on the W5500 Chip
 
 The Ethernet.setRetransmissionCount() and Ethernet.setRetransmissionTimeout() commands do not work on W5500 chips because of a bug in the Ethernet.h library (see [this issue](https://github.com/arduino-libraries/Ethernet/issues/140)). As a result, Arduino fails to read data from the P1/P2 bus (read errors, CRC errors) if certain conditions are met:
 * Ethernet shield with the W5500 chip is used.
@@ -268,7 +317,7 @@ The Ethernet.setRetransmissionCount() and Ethernet.setRetransmissionTimeout() co
 
 In this situation (UDP unicast) the W5500 chip checks whether the remote IP exists via ARP request. While the Ethernet.h waits for the ARP response, new P1/P2 packet arrives and is not properly processed which leads to P1/P2 read errors. The solution is simple. If you have a shield with the W5500 chip, set the Send and Receive UDP setting to **To/From Any IP (Broadcast)**.
 
-## Ethernet Sockets
+## Ethernet sockets
 
 The number of used sockets is determined (by the Ethernet.h library) based on microcontroller RAM. Therefore, even if you use W5500 (which has 8 sockets available) on Arduino Nano, only 4 sockets will be used due to limited RAM on Nano.
 
@@ -276,13 +325,13 @@ The number of used sockets is determined (by the Ethernet.h library) based on mi
 
 Not everything could fit into the limited flash memory of Arduino Nano / Uno. If you have a microcontroller with more memory (such as Mega), you can enable extra settings in the main sketch by defining ENABLE_DHCP and/or ENABLE_EXTRA_DIAG in advanced settings.
 
-# What is the Difference from Other Solutions?
+# Comparison with other solutions
 
-Here is a brief comparison with other solutions (as of April 2023):
+As of April 2023:
 
 | **Project** | **[budulinek/<br>arduino-altherma-controller](https://github.com/budulinek/arduino-altherma-controller)** | **[Arnold-n/<br>P1P2Serial](https://github.com/Arnold-n/P1P2Serial)** | **[raomin/<br>ESPAltherma](https://github.com/raomin/ESPAltherma)** | **[tadasdanielius/<br>daikin_altherma](https://github.com/tadasdanielius/daikin_altherma)** | **[speleolontra/<br>daikin_residential_altherma](https://github.com/speleolontra/daikin_residential_altherma)** ||
 |------------------------------------|------------------------------------------------------------------------------------|----------------------------------------------------------|-------------------------------------------------------------------------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------|-------------------------------------------|
-| **Hardware** | • Arduino Uno/Mega<br>• Ethernet Shield<br>• Custom P1P2 Uno adapter | • Custom all-in-one board | • M5StickC (or any ESP32/ESP8266 board)<br> • external relay (optional) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with OLD firmware) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with NEW firmware) | • Daikin WLAN adapter<br>(BRP069A78) |
+| **Hardware** | • Arduino Uno<br>• Ethernet Shield<br>• Custom P1P2 Uno adapter | • Custom all-in-one board | • M5StickC (or any ESP32/ESP8266 board)<br> • external relay (optional) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with OLD firmware) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with NEW firmware) | • Daikin WLAN adapter<br>(BRP069A78) |
 | **Programable MCUs** | 1<br>ATmega328P | 2<br>ATmega328P + ESP8266 | 1<br>ESP32/8266 | --- | --- ||
 | **Connection to Daikin Altherma**  | P1/P2 bus | P1/P2 bus | X10A serial port | P1/P2 bus | P1/P2 bus | dedicated slot |
 | **Interface** | • Ethernet | • WiFi<br>• Ethernet (optional) | • WiFi | • Ethernet | • Ethernet | • WiFi |
@@ -298,3 +347,6 @@ Here is a brief comparison with other solutions (as of April 2023):
 ## Version history
 
 For version history see:
+
+https://github.com/budulinek/arduino-altherma-controller/blob/main/arduino-altherma-controller/arduino-altherma-controller.ino#L3
+

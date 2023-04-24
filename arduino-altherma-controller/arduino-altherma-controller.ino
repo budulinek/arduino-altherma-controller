@@ -1,21 +1,11 @@
-/* Altherma UDP Controller: Monitors and controls Daikin E-Series (Altherma) through P1/P2 bus.
+/* Altherma UDP Controller: Monitors and controls Daikin E-Series (Altherma) het pumps through P1/P2 bus.
 
   Version history
   v0.1 2020-11-30 Initial commit, save history of selected packets, settings
   v0.2 2020-12-05 Hysteresis, vertify commands sent to P1P2
   v0.3 2020-12-09 More effective and reliable writing to P1P2 bus
   v0.4 2020-12-10 Minor tweaks
-  v1.0 2023-XX-XX Major upgrade: web interface, store settings in EEPROM, P1P2 error counters
-
-changes:
-- only Daikin E* heat pumps (Altherma)
-- no SW_SCOPE
-- no error budget 
-- no write budget (Write Cycles can are displayed via web UI)
-- use single queue for all write packets (0x3X, counter requests, daikin restart, etc.)
-- write all packets after 0x30 (disable #define KLICDA writing after 0x12 packet)
-- write any packets (incl. counter requests, restarts, etc.) only if connected as controller
-- if the main controller sends request to our auxiliary controller, always respond
+  v1.0 2023-04-18 Major upgrade: web interface, store settings in EEPROM, P1P2 error counters
 
  */
 
@@ -41,10 +31,6 @@ enum first_last : byte {
   FIRST,
   LAST
 };
-
-
-
-/****** DEFAULT FACTORY SETTINGS ******/
 
 enum status : byte {
   PACKET_SEEN,  // Packet Type was detected on P1P2 bus
