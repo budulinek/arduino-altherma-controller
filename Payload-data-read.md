@@ -128,6 +128,8 @@ Header: 400010
 | 9        | 00                 | ?
 |10        | 1A                 | ?
 |11:2      | 0/1                | Quiet mode (off/on)      | bit
+|11:1      | 0/1                | **?? (end of disinfection)** | bit
+|11:0      | 0/1                | **Disinfection mode (off/on)** | bit
 |11        | 0                  | ?                        | bit
 |12        | 00                 | Error code part 1        | u8
 |13        | 00                 | Error code part 2        | u8
@@ -135,7 +137,7 @@ Header: 400010
 |15-17     | 00                 | ?
 |17:1      | 0/1                | Defrost operation        | bit
 |18:3      | 0/1                | Circ.pump (off/on)       | bit
-|18:1      | 0/1                | ?                        | bit
+|18:1      | 0/1                | **Backup Heater step 1 DHW (off/on)** | bit
 |18:0      | 0/1                | Compressor (off/on)      | bit
 |18:other  | 0                  | ?                        | bit
 |19:2      | 0/1                | DHW mode                 | bit

@@ -30,6 +30,17 @@ const byte WEB_OUT_BUFFER_SIZE = 64;  // size of web server write buffer (used b
 void sendPage(EthernetClient &client, byte reqPage) {
   char webOutBuffer[WEB_OUT_BUFFER_SIZE];
   ChunkedPrint chunked(client, webOutBuffer, sizeof(webOutBuffer));  // the StreamLib object to replace client print
+  /*
+
+use HTTP/1.0 because 
+- HOSTS: isn't necessary as the Arduino will only host one server.
+- in HTTP/1.1 HOSTS: is mandatory (and necessary if you HOST more than one site on one server) and the server should answer a request with "400 Bad Request" if it is missing
+- we don't need to send a Content-Length in HTTP/1.0
+
+An advantage of HTTP 1.1 is
+- you could keep the connection alive
+ 
+ */
   if (reqPage == PAGE_ERROR) {
     chunked.print(F("HTTP/1.1 404 Not Found\r\n"
                     "\r\n"
