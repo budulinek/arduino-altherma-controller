@@ -58,6 +58,12 @@ enum page : byte {
 enum post_key : byte {
   POST_NONE,  // reserved for NULL
   POST_DHCP,  // enable DHCP
+  POST_MAC,
+  POST_MAC_1,
+  POST_MAC_2,
+  POST_MAC_3,
+  POST_MAC_4,
+  POST_MAC_5,
   POST_IP,
   POST_IP_1,
   POST_IP_2,
@@ -86,6 +92,7 @@ enum post_key : byte {
   POST_COUNTER_PERIOD,     // period for counter requests
   POST_SAVE_DATA_PACKETS,  // save data packets (send only if payload changed)
   POST_TIMEOUT,            // connection timeout
+  POST_QUOTA,              // write throttle
   POST_HYSTERESIS,         // temp setpoint hysteresis
   POST_CMD_TYPE,           // write command packet type
   POST_CMD_PARAM_1,        // write command parameter number
@@ -101,16 +108,16 @@ enum post_key : byte {
 
 // Keys for JSON elements, used in: 1) JSON documents, 2) ID of span tags, 3) Javascript.
 enum JSON_type : byte {
-  JSON_RUNTIME,        // Runtime
-  JSON_DAIKIN_INDOOR,  // Daikin Indoor Unit
+  JSON_RUNTIME,         // Runtime
+  JSON_DAIKIN_INDOOR,   // Daikin Indoor Unit
   JSON_DAIKIN_OUTDOOR,  // Daikin Outdoor Unit
-  JSON_DATE,           // date and time
-  JSON_DAIKIN_EEPROM,  // EEPROM Health
-  JSON_WRITE_P1P2,     // write P1P2 button
-  JSON_P1P2_STATS,     // Multiple P1P2 Read Statistics
-  JSON_UDP_STATS,      // Multiple P1P2 Write Statistics
-  JSON_CONTROLLER,     // Controller Mode
-  JSON_LAST,           // Must be the very last element in this array
+  JSON_DATE,            // date and time
+  JSON_DAIKIN_EEPROM,   // EEPROM Health
+  JSON_WRITE_P1P2,      // write P1P2 button
+  JSON_P1P2_STATS,      // Multiple P1P2 Read Statistics
+  JSON_UDP_STATS,       // Multiple P1P2 Write Statistics
+  JSON_CONTROLLER,      // Controller Mode
+  JSON_LAST,            // Must be the very last element in this array
 };
 
 void recvWeb(EthernetClient &client) {
@@ -212,12 +219,13 @@ void processPost(EthernetClient &client) {
     }
     if (*paramValue == '\0')
       continue;  // do not process POST parameter if there is no parameter value
-    unsigned int paramValueUint = atol(paramValue);
+    byte paramKeyByte = strToByte(paramKey);
+    uint16_t paramValueUint = atol(paramValue);
     if (paramKey[0] == 'p') {  // POST parameter starts with 'p': this is a setting for sent packets
       setPacketStatus(strToByte(paramKey + 1), PACKET_SENT, byte(paramValueUint));
       continue;
     }
-    byte paramKeyByte = strToByte(paramKey);
+
     switch (paramKeyByte) {
       case POST_NONE:  // reserved, because atoi / atol returns NULL in case of error
         break;
@@ -254,10 +262,16 @@ void processPost(EthernetClient &client) {
           command[cmdLen - 1] = strToByte(paramValue);
         }
         break;
+      case POST_MAC ... POST_MAC_5:
+        {
+          action = ACT_RESET_ETH;  // this RESET_ETH is triggered when the user changes anything on the "IP Settings" page.
+                                   // No need to trigger RESET_ETH for other cases (POST_SUBNET, POST_GATEWAY etc.)
+                                   // if "Randomize" button is pressed, action is set to ACT_MAC
+          mac[paramKeyByte - POST_MAC] = strToByte(paramValue);
+        }
+        break;
       case POST_IP ... POST_IP_3:
         {
-          action = ACT_RESET_ETH;  // this ACT_RESET_ETH is triggered when the user changes anything on the "IP Settings" page.
-          // No need to trigger ACT_RESET_ETH for other cases (POST_SUBNET, POST_GATEWAY etc.)
           localConfig.ip[paramKeyByte - POST_IP] = byte(paramValueUint);
         }
         break;
@@ -319,6 +333,9 @@ void processPost(EthernetClient &client) {
       case POST_TIMEOUT:
         localConfig.connectTimeout = byte(paramValueUint);
         break;
+      case POST_QUOTA:
+        localConfig.writeQuota = byte(paramValueUint);
+        break;
       case POST_HYSTERESIS:
         localConfig.hysteresis = byte(paramValueUint);
         break;
@@ -342,10 +359,7 @@ void processPost(EthernetClient &client) {
   switch (action) {
     case ACT_FACTORY:
       {
-        byte tempMac[3];
-        memcpy(tempMac, localConfig.macEnd, 3);  // keep current MAC
         localConfig = DEFAULT_CONFIG;
-        memcpy(localConfig.macEnd, tempMac, 3);
         setPacketStatus(PACKET_TYPE_COUNTER, PACKET_SENT, true);
         for (byte i = PACKET_TYPE_DATA[FIRST]; i <= PACKET_TYPE_DATA[LAST]; i++) {
           setPacketStatus(i, PACKET_SENT, true);
@@ -416,4 +430,9 @@ char *hex(byte val) {
     buffer[digits] = (v < 10) ? '0' + v : ('A' - 10) + v;
   }
   return buffer;
+}
+
+// convert date to days
+uint16_t days(byte *date) {
+  return (date[3] * 365) + ((date[4] - 1) * 30) + date[5];
 }
