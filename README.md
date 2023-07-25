@@ -54,14 +54,13 @@ The controller has a built-in web interface. You can use this web interface to c
 # Hardware
 Get the hardware and connect together:
 
-* **Arduino Uno**.
-
-* **Ethernet shield (with W5100, W5200 or W5500 chip)**. The ubiquitous W5100 shield for Uno is sufficient. !!! ENC28J60 will not work !!!
-* **Custom P1P2 Uno adapter**. You can [solder your own adapter](https://github.com/Arnold-n/P1P2Serial/tree/main/circuits#p1p2-adapter-as-arduino-uno-hat) or buy one from Arnold-n (his e-mail address can be found on line 3 of his library [P1P2Serial.cpp](https://github.com/Arnold-n/P1P2Serial/blob/main/P1P2Serial.cpp)).
+* **Arduino Uno**.<br>Cheap clones are sufficient.
+* **Ethernet shield with WIZnet chip (W5100, W5200 or W5500)**.<br>The ubiquitous W5100 shield for Uno/Mega is sufficient. If available, I recommend W5500 Ethernet Shield. You can also use combo board MCU + ethernet (such as ATmega328 + W5500 board from Keyestudio).<br>ATTENTION: Ethernet shields with ENC28J60 chip will not work !!!
+* **Custom P1P2 Uno adapter**.<br>You can [solder your own adapter](https://github.com/Arnold-n/P1P2Serial/tree/main/circuits#p1p2-adapter-as-arduino-uno-hat) or buy one from Arnold-n (his e-mail address can be found on line 3 of his library [P1P2Serial.cpp](https://github.com/Arnold-n/P1P2Serial/blob/main/P1P2Serial.cpp)).
 
 Here is my HW setup (cheap Arduino Uno clone + W5500 Ethernet shield from Keyestudio + custom P1P2 Uno adapter):
 
-<img src="pics/HW.jpg" alt="01" style="zoom:100%;" />
+<img src="pics/HW.jpg" alt="HW" style="zoom:100%;" />
 
 # Firmware
 
@@ -80,7 +79,7 @@ This controller has a built-in webserver which allows you to configure the contr
 
 ## System Info
 
-<img src="pics/daikin1.png" alt="01" style="zoom:100%;" />
+<img src="pics/daikin1.png" alt="daikin1" style="zoom:100%;" />
 
 **Load Default Settings**. Loads default settings (see DEFAULT_CONFIG in advanced settings). MAC address is retained.
 
@@ -88,11 +87,11 @@ This controller has a built-in webserver which allows you to configure the contr
 
 **EEPROM Health**. Keeps track of EEPROM write cycles (this counter is persistent, never cleared during factory resets). Replace your Arduino once you reach 100 000 write cycles (with 6 hours EEPROM_INTERVAL you have more than 50 years lifespan).
 
-**Generate New MAC**. Generate new MAC address. First 3 bytes are fixed 90:A2:DA, remaining 3 bytes are true random.
+**MAC Address**. First 3 bytes are fixed 90:A2:DA, remaining 3 bytes are random. You can also set manual MAC in IP Settings.
 
 ## P1P2 Status
 
-<img src="pics/daikin2.png" alt="02" style="zoom:100%;" />
+<img src="pics/daikin2.png" alt="daikin2" style="zoom:100%;" />
 
 **Controller**. Shows you the status of the P1/P2 connection and allows you to manually connect (or disconnect) the controller. The status can be:
 * **Disabled**. Controller mode has been disabled in **P1P2 Settings**. The controller can not write to the P1/P2 bus but it still passively monitors the P1/P2 bus and sends (most) data from the heat pump via UDP messages.
@@ -123,8 +122,14 @@ This controller has a built-in webserver which allows you to configure the contr
 * **Value**. Parameter value, the number of bytes differs for various packet types. See PACKET_PARAM_VAL_SIZE in advanced settings for the correct number of bytes. Value is also **<ins>in little endian format</ins>**!
 
 **P1P2 Packets**. Counters for packets read from the P1/P2 bus or written to the P1/P2 bus, counters for various read and write errors. If any of the counters rolls over the unsigned long maximum (4,294,967,295), all counters will reset to 0.
-* **Read OK**. Number of packets read from the P1/P2 bus, without errors. Not all of them are sent via UDP (see the **Packet Filter** settings). Packets are read from the P1/P2 bus (and sent via UDP) even if the controller is not connected to the P1/P2 bus.
-* **Write OK**. Number of packets written to the P1/P2 bus. Includes both packets written automatically by the controller (requests for the counters packets), write commands from the web interface (**Write Packet**) and write commands received via UDP. Writing to the P1/P2 bus is only possible if the controller is connected to the P1/P2 bus (to the main Daikin controller).
+* **Bus Read OK**. Number of packets read from the P1/P2 bus, without errors. Not all of them are sent via UDP (see the **Packet Filter** settings). Packets are read from the P1/P2 bus (and sent via UDP) even if the controller is not connected to the P1/P2 bus.
+* **Bus Write OK**. Number of packets written to the P1/P2 bus. Includes both packets written automatically by the controller (requests for the counters packets), write commands from the web interface and write commands received via UDP. Writing to the P1/P2 bus is only possible if the controller is connected to the P1/P2 bus (to the main Daikin controller).
+* **EEPROM Write Quota Reached**. Daily EEPROM Write Quota (configured in **P1P2 Settings**) was reached. The command (received via UDP or from the web interface) was dropped.
+* **Write Queue Full**. Internal queue (circular buffer) for commands is full. The command (received via UDP or from the web interface) was dropped.
+* **Write Command Invalid**. Command received via UDP or from the web interface was invalid, it was dropped. Possible reasons:
+  - Packet type (first byte) is not supported (PACKET_PARAM_VAL_SIZE in advanced settings is set to zero).
+  - Incorrect packet length. Command should have 1 byte for type, 2 bytes for parameter number and the correct numer of bytes for the parameter value (see PACKET_PARAM_VAL_SIZE in advanced settings).
+
 * **Parity Read Error**.
 * **Too Long Read Error**. Packet received is longer than the read buffer.
 * **Start Bit Write Error**. Start bit error during write.
@@ -134,15 +139,13 @@ This controller has a built-in webserver which allows you to configure the contr
 
 **UDP Messages**.\*\*
 * **Sent to UDP**. Counts packets (messages) read from the P1/P2 bus and sent via UDP. Not all packets read from the P1/P2 bus are sent via UDP (see the **Packet Filter** settings).
-* **Received from UDP**. Counts valid messages received via UDP. Messages are validated:
-  - Packet type (first byte) is supported (PACKET_PARAM_VAL_SIZE in advanced settings is not zero).
-  - Correct packet length. 1 byte for type, 2 bytes for parameter number and the correct numer of param vallue bytes (see PACKET_PARAM_VAL_SIZE in advanced settings).
-  - The internal queue (circular buffer) for commands is not full.
-
+* **Received from UDP**. Counts all messages received via UDP from a valid remote IP.
 
 ## IP Settings
 
-<img src="pics/daikin3.png" alt="02" style="zoom:100%;" />
+<img src="pics/daikin3.png" alt="daikin3" style="zoom:100%;" />
+
+**MAC Address**.\*\* Change MAC address. "Randomize" button will generate new random MAC (first 3 bytes fixed 90:A2:DA, last 3 bytes will be random).
 
 **Auto IP**.\* Once enabled, Arduino will receive IP, gateway, subnet and DNS from the DHCP server.
 
@@ -156,7 +159,7 @@ This controller has a built-in webserver which allows you to configure the contr
 
 ## TCP/UDP Settings
 
-<img src="pics/daikin4.png" alt="02" style="zoom:100%;" />
+<img src="pics/daikin4.png" alt="daikin4" style="zoom:100%;" />
 
 **Remote IP**. IP address of your home automation system which listens for UDP messages and sends UDP commands.
 
@@ -170,7 +173,7 @@ This controller has a built-in webserver which allows you to configure the contr
 
 ## P1P2 Settings
 
-<img src="pics/daikin5.png" alt="05" style="zoom:100%;" />
+<img src="pics/daikin5.png" alt="daikin5" style="zoom:100%;" />
 
 **Controller (Write to P1P2)**.
 * **Disabled** (safe). The controller is permanently disconnected from the P1/P2 bus, manual connection is not possible. The controller can not write to the P1/P2 bus but it still passively monitors the P1/P2 bus and sends (most) data from the heat pump via UDP. Disable the controller in case you experience persistent connection failures and/or write errors.
@@ -185,7 +188,7 @@ This controller has a built-in webserver which allows you to configure the contr
 
 ## Packet Filter
 
-<img src="pics/daikin6.png" alt="06" style="zoom:100%;" />
+<img src="pics/daikin6.png" alt="daikin6" style="zoom:100%;" />
 
 The **Packet Filter** page lists all packet types observed on the P1/P2 bus. Some of them are exchanged between the heat pump and the main Daikin controller, others are exchanged between our controller (or other external controllers) and the main Daikin controller. If you do not see any packet types, wait few seconds. If a new packet type is detected, it will be automatically added to the list. **Packet types enabled on this page are forwarded via UDP**. By default, only Counter Packet (0xB8) and Data Packets (usually 0x10 - 0x16) are sent via UDP. Enable additional packet types if you want to test or reverse-engineer the P1/P2 protocol.
 

@@ -6,10 +6,11 @@
   v0.3 2020-12-09 More effective and reliable writing to P1P2 bus
   v0.4 2020-12-10 Minor tweaks
   v1.0 2023-04-18 Major upgrade: web interface, store settings in EEPROM, P1P2 error counters
+  v2.0 2023-XX_XX Manual MAC, Daikin EEPROM write daily quota
 
  */
 
-const byte VERSION[] = { 1, 0 };
+const byte VERSION[] = { 2, 0 };
 
 #include <SPI.h>
 #include <Ethernet.h>
@@ -45,7 +46,6 @@ enum mode : byte {
 };
 
 typedef struct {
-  byte macEnd[3];
   byte ip[4];
   byte subnet[4];
   byte gateway[4];
@@ -53,16 +53,17 @@ typedef struct {
   bool enableDhcp;  // only used if ENABLE_DHCP
   byte remoteIp[4];
   bool udpBroadcast;
-  unsigned int udpPort;
-  unsigned int webPort;
+  uint16_t udpPort;
+  uint16_t webPort;
   byte controllerMode;
   byte connectTimeout;
   bool notSupported;
   byte hysteresis;
+  byte writeQuota;
   bool sendAllPackets;
   byte counterPeriod;
   bool saveDataPackets;
-  uint8_t packetStatus[PACKET_LAST][256 / 8];
+  byte packetStatus[PACKET_LAST][256 / 8];
 } config_type;
 
 // local configuration values (stored in RAM)
@@ -75,6 +76,7 @@ CircularBuffer<byte, MAX_QUEUE_DATA> cmdQueue;  // queue of PDU data
 
 
 /****** ETHERNET AND P1P2 SERIAL ******/
+byte mac[6];  // MAC Address (initial value is random generated)
 
 byte maxSockNum = MAX_SOCK_NUM;
 
@@ -94,11 +96,11 @@ static byte hwID = 0;
 
 class Timer {
 private:
-  unsigned long timestampLastHitMs;
-  unsigned long sleepTimeMs;
+  uint32_t timestampLastHitMs;
+  uint32_t sleepTimeMs;
 public:
   boolean isOver();
-  void sleep(unsigned long sleepTimeMs);
+  void sleep(uint32_t sleepTimeMs);
 };
 boolean Timer::isOver() {
   if ((unsigned long)(millis() - timestampLastHitMs) > sleepTimeMs) {
@@ -106,7 +108,7 @@ boolean Timer::isOver() {
   }
   return false;
 }
-void Timer::sleep(unsigned long sleepTimeMs) {
+void Timer::sleep(uint32_t sleepTimeMs) {
   this->sleepTimeMs = sleepTimeMs;
   timestampLastHitMs = millis();
 }
@@ -130,8 +132,6 @@ byte controllerId = 0x00;
 // if -1 than no Fx request or response seen (relevant to detect whether F1 controller is supported or not)
 static int8_t FxAbsentCnt[2] = { -1, -1 };
 
-void (*resetFunc)(void) = 0;  //declare reset function at address 0
-
 /****** RUN TIME AND DATA COUNTERS ******/
 
 byte savedPackets[SAVED_PACKETS_SIZE] = {};
@@ -140,7 +140,11 @@ const byte PACKET_TYPE_HANDSHAKE = PACKET_TYPE_CONTROL[FIRST];
 
 const byte NAME_SIZE = 16;  // buffer size for device name
 char daikinIndoor[NAME_SIZE];
+
+#ifdef ENABLE_EXTRA_DIAG
 char daikinOutdoor[NAME_SIZE];
+#endif /* ENABLE_EXTRA_DIAG */
+
 bool indoorInQueue;   // request for an indoor name in queue
 bool outdoorInQueue;  // request for an outdoor name in queue
 
@@ -149,15 +153,18 @@ volatile int8_t nrot;
 uint32_t seed2 = 17111989;  // seed2 is static
 
 enum p1p2_Error : byte {
-  P1P2_READ,         // Read
-  P1P2_WRITTEN,      // Written
-  P1P2_ERROR_PE,     // Parity Read Error
-  P1P2_LARGE,        // Read Too Long
-  P1P2_ERROR_SB,     // Start Bit Write Error
-  P1P2_ERROR_BE_BC,  // Write Bus Collission
-  P1P2_ERROR_OR,     // Buffer Overrun
-  P1P2_ERROR_CRC,    // CRC Error
-  P1P2_LAST          // Number of status flags in this enum. Must be the last element within this enum!!
+  P1P2_READ_OK,        // Bus Read OK
+  P1P2_WRITE_OK,       // Bus Write OK
+  P1P2_WRITE_QUOTA,    // EEPROM Write Quota Reached
+  P1P2_WRITE_QUEUE,    // Write Queue Full
+  P1P2_WRITE_INVALID,  // Write Command Invalid
+  P1P2_ERROR_PE,       // Parity Read Error
+  P1P2_LARGE,          // Read Too Long
+  P1P2_ERROR_SB,       // Start Bit Write Error
+  P1P2_ERROR_BE_BC,    // Write Bus Collission
+  P1P2_ERROR_OR,       // Buffer Overrun
+  P1P2_ERROR_CRC,      // CRC Error
+  P1P2_LAST            // Number of status flags in this enum. Must be the last element within this enum!!
 };
 // array for storing P1P2 counters
 uint32_t p1p2Count[P1P2_LAST];
@@ -184,33 +191,27 @@ enum udp_Error : byte {
 uint32_t udpCount[UDP_LAST];
 
 // store uptime seconds (includes seconds counted before millis() overflow)
-unsigned long seconds;
+uint32_t seconds;
 // store last millis() so that we can detect millis() overflow
-unsigned long last_milliseconds = 0;
+uint32_t last_milliseconds = 0;
 // store seconds passed until the moment of the overflow so that we can add them to "seconds" on the next call
-long remaining_seconds;
+int32_t remaining_seconds;
 #endif /* ENABLE_EXTRA_DIAG */
 
 /****** SETUP: RUNS ONCE ******/
 
-
-
 void setup() {
-  Serial.begin(115200);
-
-  // for (int i = 0; i < EEPROM.length(); i++) {
-  //   EEPROM.write(i, 0);
-  // }
-
   CreateTrulyRandomSeed();
 
-  int address = CONFIG_START;
+  byte address = CONFIG_START;
   EEPROM.get(address, eepromCount);  // EEPROM counters are persistent, never cleared during factory resets
   address += sizeof(eepromCount);
-  // is config already stored in EEPROM?
+  // is configuration already stored in EEPROM?
   if (EEPROM.read(address) == VERSION[0]) {
     // load local configuration struct from EEPROM, from CONFIG_START address
     address += 1;
+    EEPROM.get(address, mac);
+    address += 6;
     EEPROM.get(address, localConfig);
     address += sizeof(localConfig);
     EEPROM.get(address, p1p2Count);
@@ -254,7 +255,6 @@ void setup() {
 
 void loop() {
 
-  // rcvSerial();
   recvBus();
   recvUdp();
   manageSockets();

@@ -1,3 +1,27 @@
+/* *******************************************************************
+   P1P2 bus read and write functions
+
+   recvBus()
+   - receives data from the P1P2 bus
+   - calls other functions to parse data, write to the P1P2 bus and process errors
+
+   processParseRead()
+   - forwards P1P2 packets to UDP
+   - reads some important variables (date, unit name, etc.)
+   - checks for other auxiliary controllers and gets controller ID
+
+   processErrors()
+   - stores errors in counters
+
+   processWrite()
+   - writes to the P1P2 bus
+
+   changedPacket()
+   - checks whether the packet payload (received via P1P2) has changed and stores new value
+
+   changed36Param()
+   - checks whether the parameter 36 value in the command (received via UDP or web interface) changed (more than hysteresis)
+   ***************************************************************** */
 
 static byte WB[WB_SIZE];
 static byte RB[RB_SIZE];
@@ -7,14 +31,14 @@ void recvBus() {
   while (P1P2Serial.packetavailable()) {
     uint16_t delta;
     errorbuf_t readError = 0;
-    int nread = P1P2Serial.readpacket(RB, delta, EB, RB_SIZE, CRC_GEN, CRC_FEED);
+    uint16_t nread = P1P2Serial.readpacket(RB, delta, EB, RB_SIZE, CRC_GEN, CRC_FEED);
     if (nread > RB_SIZE) {
       //  Received packet longer than RB_SIZE
       p1p2Count[P1P2_LARGE]++;
       nread = RB_SIZE;
       readError = 0xFF;
     }
-    for (int i = 0; i < nread; i++) readError |= EB[i];
+    for (uint16_t i = 0; i < nread; i++) readError |= EB[i];
 
     if (!readError) {
       // message received, no error detected, forward to UDP and parse some info about the heat pump (name, date etc.)
@@ -33,11 +57,11 @@ void recvBus() {
 }
 
 
-void processParseRead(int n, uint16_t delta) {
+void processParseRead(uint16_t n, uint16_t delta) {
   if (CRC_GEN) n--;  // omit CRC
 
   // update counters and packet type status
-  p1p2Count[P1P2_READ]++;
+  p1p2Count[P1P2_READ_OK]++;
   if (setPacketStatus(RB[2], PACKET_SEEN, true) == true) {
     updateEeprom();
   }
@@ -78,6 +102,7 @@ void processParseRead(int n, uint16_t delta) {
     if (daikinIndoor[0] == '\0') daikinIndoor[0] = '-';  // if response from heat pup is empty, write '-' in order to prevent repeated requests from us
   }
 
+#ifdef ENABLE_EXTRA_DIAG
   if ((RB[0] == 0x40) && (RB[1] == 0x00) && (RB[2] == PACKET_TYPE_OUTDOOR_NAME)) {
     for (byte i = 0; i < NAME_SIZE - 1; i++) {
       if (RB[i + 4] == 0) break;
@@ -85,6 +110,7 @@ void processParseRead(int n, uint16_t delta) {
     }
     if (daikinOutdoor[0] == '\0') daikinOutdoor[0] = '-';  // if response from heat pup is empty, write '-' in order to prevent repeated requests from us
   }
+#endif /* ENABLE_EXTRA_DIAG */
 
   // check for other auxiliary controllers and get controller ID
   if (((RB[1] & 0xFE) == 0xF0) && ((RB[2] & PACKET_TYPE_HANDSHAKE) == PACKET_TYPE_HANDSHAKE)) {
@@ -115,10 +141,10 @@ void processParseRead(int n, uint16_t delta) {
   }
 }
 
-void processErrors(int nread) {
+void processErrors(uint16_t nread) {
   bool packetError[P1P2_LAST];
   memset(packetError, 0, sizeof(packetError));
-  for (int i = 0; i < nread; i++) {
+  for (uint16_t i = 0; i < nread; i++) {
     if ((EB[i] & ERROR_SB)) {
       // collision suspicion due to data verification error in reading back written data
       packetError[P1P2_ERROR_SB] = true;
@@ -146,13 +172,12 @@ void processErrors(int nread) {
   }
 }
 
-void processWrite(int n) {
+void processWrite(uint16_t n) {
   //if the main controller sends request to our auxiliary controller, always respond
   WB[0] = 0x40;
   WB[1] = RB[1];
   WB[2] = RB[2];
-  // byte w;
-  int d = F03XDELAY;
+  byte d = F03XDELAY;
   byte cmdType = 0;
   byte cmdLen = 0;
   if (cmdQueue.isEmpty() == false) {
@@ -169,16 +194,20 @@ void processWrite(int n) {
   // Write command from queue
   if (cmdLen && RB[2] == cmdType) {  // second byte in queue is packet type, compare to received packet type
     if (2 + cmdLen <= n) {           // check if param size in queue is not larger than space available in packet
-      for (byte i = 0; i < cmdLen; i++) {
-        WB[i + 2] = cmdQueue[i + 1];  // skip the first byte in the queue (cmdLen)
+      if (eepromCount.todayWrites <= localConfig.writeQuota) {
+        for (byte i = 0; i < cmdLen; i++) {
+          WB[i + 2] = cmdQueue[i + 1];  // skip the first byte in the queue (cmdLen)
+        }
+        eepromCount.daikinWrites++;
+        eepromCount.todayWrites++;
+      } else {
+        p1p2Count[P1P2_WRITE_QUOTA]++;
       }
-      deleteCmd();  // delete cmd in Queue
-      eepromCount.daikinWrites++;
-      eepromCount.todayWrites++;
-      updateEeprom();
     } else {
       // TODO error
     }
+    updateEeprom();
+    deleteCmd();  // delete cmd in Queue
   } else {
     switch (RB[2]) {
       case PACKET_TYPE_HANDSHAKE:  // 0x30
@@ -265,7 +294,7 @@ void processWrite(int n) {
     }
   }
   P1P2Serial.writepacket(WB, n, d, CRC_GEN, CRC_FEED);
-  p1p2Count[P1P2_WRITTEN]++;
+  p1p2Count[P1P2_WRITE_OK]++;
 }
 
 bool changedPacket(byte packet[], const byte packetLen) {
@@ -319,10 +348,10 @@ bool changed36Param(byte cmd[]) {
     newVal = false;
   } else {
     byte paramNum = cmd[1];
-    int paramVal = (cmd[4] << 8) | cmd[3];
-    int storedVal = (saved36Params[paramNum][1] << 8) | saved36Params[paramNum][0];
+    int16_t paramVal = (cmd[4] << 8) | cmd[3];
+    int16_t storedVal = (saved36Params[paramNum][1] << 8) | saved36Params[paramNum][0];
     // this byte or at least some bits have been seen and saved before.
-    if (abs(int(storedVal - paramVal)) >= int(localConfig.hysteresis * 10)) {
+    if (abs(int16_t(storedVal - paramVal)) >= int16_t(localConfig.hysteresis * 10)) {
       newVal = true;
       saved36Params[paramNum][0] = cmd[3];
       saved36Params[paramNum][1] = cmd[4];

@@ -3,7 +3,7 @@
 
 /****** ADVANCED SETTINGS ******/
 
-const int MAX_QUEUE_DATA = 64;                       // total length of UDP commands stored in a queue (in bytes)
+const byte MAX_QUEUE_DATA = 64;                      // total length of UDP commands stored in a queue (in bytes)
 const byte PACKET_TYPE_DATA[2] = { 0x10, 0x16 };     // First and last data packet type, regularly sent between heat pump and main controller
 const byte PACKET_TYPE_CONTROL[2] = { 0x30, 0x3E };  // First and last control packet type, between main and auxiliary controller
 const byte PACKET_TYPE_INDOOR_NAME = 0xB1;           // Heat pump indoorname packet type
@@ -32,32 +32,30 @@ const byte MAX_36_PARAMS = 0x0D;  // max number of packet type 0x36 parameters s
 const byte CRC_GEN = 0xD9;   // Default generator/Feed for CRC check; these values work at least for the Daikin hybrid
 const byte CRC_FEED = 0x00;  // Define CRC_GEN to 0x00 means no CRC is checked when reading or added when writing
 
-const byte WB_SIZE = 32;              // P1/P2 write buffer size for writing to P1P2bus, max packet size is 32 (have not seen anytyhing over 24 (23+CRC))
-const byte RB_SIZE = 33;              // P1/P2 read buffer size to store raw data and error codes read from P1P2bus; 1 extra for reading back CRC byte; 24 might be enough
-const unsigned int INIT_SDTO = 2500;  // P1/P2 write time-out delay (ms)
+const byte WB_SIZE = 32;          // P1/P2 write buffer size for writing to P1P2bus, max packet size is 32 (have not seen anytyhing over 24 (23+CRC))
+const byte RB_SIZE = 33;          // P1/P2 read buffer size to store raw data and error codes read from P1P2bus; 1 extra for reading back CRC byte; 24 might be enough
+const uint16_t INIT_SDTO = 2500;  // P1/P2 write time-out delay (ms)
 
 // set CTRL adapter ID; if not used, installer mode becomes unavailable on main controller
 const byte CTRL_ID[] = { 0xB4, 0x10 };  // LAN adapter ID in 0x31 payload bytes 7 and 8
 
 const byte MAC_START[3] = { 0x90, 0xA2, 0xDA };  // MAC range for Gheo SA
 const byte ETH_RESET_PIN = 7;                    // Ethernet shield reset pin (deals with power on reset issue on low quality ethernet shields)
-const unsigned int ETH_RESET_DELAY = 500;        // Delay (ms) during Ethernet start, wait for Ethernet shield to start (reset issue on low quality ethernet shields)
-const unsigned int WEB_IDLE_TIMEOUT = 400;       // Time (ms) from last client data after which webserver TCP socket could be disconnected, non-blocking.
-const unsigned int TCP_DISCON_TIMEOUT = 500;     // Timeout (ms) for client DISCON socket command, non-blocking alternative to https://www.arduino.cc/reference/en/libraries/ethernet/client.setconnectiontimeout/
-//const unsigned int TCP_RETRANSMISSION_TIMEOUT = 50;  // Ethernet controller’s timeout (ms), blocking (see https://www.arduino.cc/reference/en/libraries/ethernet/ethernet.setretransmissiontimeout/)
-//const byte TCP_RETRANSMISSION_COUNT = 3;             // Number of transmission attempts the Ethernet controller will make before giving up (see https://www.arduino.cc/reference/en/libraries/ethernet/ethernet.setretransmissioncount/)
-const unsigned int TCP_RETRANSMISSION_TIMEOUT = 50;  // Ethernet controller’s timeout (ms), blocking (see https://www.arduino.cc/reference/en/libraries/ethernet/ethernet.setretransmissiontimeout/)
-const byte TCP_RETRANSMISSION_COUNT = 3;             // Number of transmission attempts the Ethernet controller will make before giving up (see https://www.arduino.cc/reference/en/libraries/ethernet/ethernet.setretransmissioncount/)
-const int FETCH_INTERVAL = 2000;                     // Fetch API interval (ms) for the Modbus Status webpage to renew data from JSON served by Arduino
+const uint16_t ETH_RESET_DELAY = 500;            // Delay (ms) during Ethernet start, wait for Ethernet shield to start (reset issue on low quality ethernet shields)
+const uint16_t WEB_IDLE_TIMEOUT = 400;           // Time (ms) from last client data after which webserver TCP socket could be disconnected, non-blocking.
+const uint16_t TCP_DISCON_TIMEOUT = 500;         // Timeout (ms) for client DISCON socket command, non-blocking alternative to https://www.arduino.cc/reference/en/libraries/ethernet/client.setconnectiontimeout/
+const uint16_t TCP_RETRANSMISSION_TIMEOUT = 50;  // Ethernet controller’s timeout (ms), blocking (see https://www.arduino.cc/reference/en/libraries/ethernet/ethernet.setretransmissiontimeout/)
+const byte TCP_RETRANSMISSION_COUNT = 3;         // Number of transmission attempts the Ethernet controller will make before giving up (see https://www.arduino.cc/reference/en/libraries/ethernet/ethernet.setretransmissioncount/)
+const uint16_t FETCH_INTERVAL = 2000;            // Fetch API interval (ms) for the Modbus Status webpage to renew data from JSON served by Arduino
 
-const int CONFIG_START = 96;     // Start address where config and counters are saved in EEPROM
+const byte CONFIG_START = 96;    // Start address where config and counters are saved in EEPROM
 const byte EEPROM_INTERVAL = 6;  // Interval (hours) for saving Modbus statistics to EEPROM (in order to minimize writes to EEPROM)
 
 /****** EXTRA FUNCTIONS ******/
 
 // these do not fit into the limited flash memory of Arduino Uno/Nano, uncomment if you have a board with more memory
 // #define ENABLE_DHCP       // Enable DHCP (Auto IP settings)
-// #define ENABLE_EXTRA_DIAG // Enable runtime counter and UDP statistics.
+// #define ENABLE_EXTRA_DIAG // Enable outdoor unit name, runtime counter and UDP statistics.
 
 /****** DEFAULT FACTORY SETTINGS ******/
 
@@ -68,7 +66,6 @@ const byte EEPROM_INTERVAL = 6;  // Interval (hours) for saving Modbus statistic
   2) VERSION_MAJOR changes (factory reset configuration AND generates new MAC)
 */
 const config_type DEFAULT_CONFIG = {
-  {},                    // macEnd (last 3 bytes)
   { 192, 168, 1, 254 },  // ip
   { 255, 255, 255, 0 },  // subnet
   { 192, 168, 1, 1 },    // gateway
@@ -82,6 +79,7 @@ const config_type DEFAULT_CONFIG = {
   (F0THRESHOLD * 2),     // connectTimeout
   false,                 // notSupported
   1,                     // hysteresis
+  24,                    // writeQuota
   false,                 // sendAllPackets
   10,                    // counterPeriod
   true,                  // saveDataPackets

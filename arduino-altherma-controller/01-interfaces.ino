@@ -1,5 +1,5 @@
 /* *******************************************************************
-   Ethernet and serial interface functions
+   Ethernet interface functions
 
    startEthernet()
    - initiates ethernet interface
@@ -18,15 +18,15 @@
    maintainCounters(), rollover()
    - synchronizes roll-over of data counters to zero
 
-   resetStats()
-   - resets Modbus stats
+   resetStats(), resetEepromStats()
+   - resets P1P2 stats and Daikin EEPROM stats
 
    generateMac()
    - generate random MAC using pseudo random generator (faster and than build-in random())
 
    manageSockets()
    - closes sockets which are waiting to be closed or which refuse to close
-   - forwards sockets with data available (webserver or Modbus TCP) for further processing
+   - forwards sockets with data available for further processing by the webserver
    - disconnects (closes) sockets which are too old / idle for too long
    - opens new sockets if needed (and if available)
 
@@ -47,11 +47,7 @@ void startEthernet() {
     delay(25);
     digitalWrite(ETH_RESET_PIN, HIGH);
     delay(ETH_RESET_DELAY);
-    pinMode(ETH_RESET_PIN, INPUT);
   }
-  byte mac[6];
-  memcpy(mac, MAC_START, 3);               // set first 3 bytes
-  memcpy(mac + 3, localConfig.macEnd, 3);  // set last 3 bytes
 #ifdef ENABLE_DHCP
   if (localConfig.enableDhcp) {
     dhcpSuccess = Ethernet.begin(mac);
@@ -72,10 +68,12 @@ void startEthernet() {
 #endif
 }
 
+void (*resetFunc)(void) = 0;  //declare reset function at address 0
+
 #ifdef ENABLE_DHCP
 void maintainDhcp() {
   if (localConfig.enableDhcp && dhcpSuccess == true) {  // only call maintain if initial DHCP request by startEthernet was successfull
-    uint8_t maintainResult = Ethernet.maintain();
+    byte maintainResult = Ethernet.maintain();
     if (maintainResult == 1 || maintainResult == 3) {  // renew failed or rebind failed
       dhcpSuccess = false;
       startEthernet();  // another DHCP request, fallback to static IP
@@ -86,7 +84,7 @@ void maintainDhcp() {
 
 #ifdef ENABLE_EXTRA_DIAG
 void maintainUptime() {
-  unsigned long milliseconds = millis();
+  uint32_t milliseconds = millis();
   if (last_milliseconds > milliseconds) {
     //in case of millis() overflow, store existing passed seconds
     remaining_seconds = seconds;
@@ -100,7 +98,7 @@ void maintainUptime() {
 }
 #endif /* ENABLE_EXTRA_DIAG */
 
-const unsigned long ROLLOVER = 0xFFFFFF00;
+const uint32_t ROLLOVER = 0xFFFFFF00;
 bool rollover() {
   // synchronize roll-over of run time, data counters and modbus stats to zero, at 0xFFFFFF00
   for (byte i = 0; i < P1P2_LAST; i++) {
@@ -143,8 +141,9 @@ void generateMac() {
   seed1 = 36969L * (seed1 & 65535L) + (seed1 >> 16);
   seed2 = 18000L * (seed2 & 65535L) + (seed2 >> 16);
   uint32_t randomBuffer = (seed1 << 16) + seed2; /* 32-bit random */
+  memcpy(mac, MAC_START, 3);                     // set first 3 bytes
   for (byte i = 0; i < 3; i++) {
-    localConfig.macEnd[i] = randomBuffer & 0xFF;
+    mac[i + 3] = randomBuffer & 0xFF;  // random last 3 bytes
     randomBuffer >>= 8;
   }
 }
@@ -152,11 +151,13 @@ void generateMac() {
 void updateEeprom() {
   eepromTimer.sleep(EEPROM_INTERVAL * 60UL * 60UL * 1000UL);  // EEPROM_INTERVAL is in hours, sleep is in milliseconds!
   eepromCount.eepromWrites++;                                 // we assume that at least some bytes are written to EEPROM during EEPROM.update or EEPROM.put
-  int address = CONFIG_START;
+  byte address = CONFIG_START;
   EEPROM.put(address, eepromCount);
   address += sizeof(eepromCount);
   EEPROM.put(address, VERSION[0]);
   address += 1;
+  EEPROM.put(address, mac);
+  address += 6;
   EEPROM.put(address, localConfig);
   address += sizeof(localConfig);
   EEPROM.put(address, p1p2Count);
@@ -167,9 +168,9 @@ void updateEeprom() {
 }
 
 #if MAX_SOCK_NUM == 8
-unsigned long lastSocketUse[MAX_SOCK_NUM] = { 0, 0, 0, 0, 0, 0, 0, 0 };  // +rs 03Feb2019 - records last interaction involving each socket to enable detecting sockets unused for longest time period
+uint32_t lastSocketUse[MAX_SOCK_NUM] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 #elif MAX_SOCK_NUM == 4
-unsigned long lastSocketUse[MAX_SOCK_NUM] = { 0, 0, 0, 0 };                          // +rs 03Feb2019 - records last interaction involving each socket to enable detecting sockets unused for longest time period
+uint32_t lastSocketUse[MAX_SOCK_NUM] = { 0, 0, 0, 0 };
 #endif
 
 // from https://github.com/SapientHetero/Ethernet/blob/master/src/socket.cpp
@@ -302,12 +303,14 @@ void manageController() {
         cmdQueue.push(0);
         indoorInQueue = true;
       }
+#ifdef ENABLE_EXTRA_DIAG
       if (daikinOutdoor[0] == '\0' && outdoorInQueue == false) {
         cmdQueue.push(2);
         cmdQueue.push(PACKET_TYPE_OUTDOOR_NAME);
         cmdQueue.push(0);
         outdoorInQueue = true;
       }
+#endif /* ENABLE_EXTRA_DIAG */
       break;
     default:
       break;

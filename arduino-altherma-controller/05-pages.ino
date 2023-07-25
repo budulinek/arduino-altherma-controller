@@ -67,7 +67,6 @@ An advantage of HTTP 1.1 is
     return;
   }
   chunked.print(F("HTTP/1.1 200 OK\r\n"
-                  // "Connection: close\r\n"
                   "Content-Type: text/html\r\n"
                   "Transfer-Encoding: chunked\r\n"
                   "\r\n"));
@@ -101,7 +100,7 @@ An advantage of HTTP 1.1 is
                     s - select input with numbers
                     p - inputs disabled by id=o checkbox
                   CSS Ids
-                    o - parent checkbox which disables other checkboxes and inputs
+                    o - checkbox which disables other checkboxes and inputs
                   */
                   "body,.m{padding:1px;margin:0;font-family:sans-serif}"
                   "h1,h4{padding:10px}"
@@ -143,7 +142,7 @@ An advantage of HTTP 1.1 is
                   "<div class=m>"));
 
   // Left Menu
-  for (byte i = 1; i < PAGE_WAIT; i++) {  // RTU Settings are the last item in the left menu
+  for (byte i = 1; i < PAGE_WAIT; i++) {  // PAGE_WAIT is the last item in enum
     chunked.print(F("<h4 "));
     if ((i) == reqPage) {
       chunked.print(F(" style=background-color:#FF6600"));
@@ -230,24 +229,28 @@ void contentInfo(ChunkedPrint &chunked) {
       break;
   }
   tagDivClose(chunked);
+
+#ifdef ENABLE_EXTRA_DIAG
+  tagLabelDiv(chunked, F("Ethernet Sockets"));
+  chunked.print(maxSockNum);
+  tagDivClose(chunked);
+#endif /* ENABLE_EXTRA_DIAG */
+
   tagLabelDiv(chunked, F("MAC Address"));
-  byte macBuffer[6];
-  W5100.getMACAddress(macBuffer);
   for (byte i = 0; i < 6; i++) {
-    chunked.print(hex(macBuffer[i]));
+    chunked.print(hex(mac[i]));
     if (i < 5) chunked.print(F(":"));
   }
-  tagButton(chunked, F("Generate New MAC"), ACT_MAC);
   tagDivClose(chunked);
 
 #ifdef ENABLE_DHCP
-  tagLabelDiv(chunked, F("Auto IP"));
+  tagLabelDiv(chunked, F("DHCP Status"));
   if (!localConfig.enableDhcp) {
-    chunked.print(F("DHCP disabled"));
+    chunked.print(F("Disabled"));
   } else if (dhcpSuccess == true) {
-    chunked.print(F("DHCP successful"));
+    chunked.print(F("Success"));
   } else {
-    chunked.print(F("DHCP failed, using fallback static IP"));
+    chunked.print(F("Failed, using fallback static IP"));
   }
   tagDivClose(chunked);
 #endif /* ENABLE_DHCP */
@@ -265,9 +268,11 @@ void contentStatus(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Daikin Indoor Unit"));
   tagSpan(chunked, JSON_DAIKIN_INDOOR);
   tagDivClose(chunked);
+#ifdef ENABLE_EXTRA_DIAG
   tagLabelDiv(chunked, F("Daikin Outdoor Unit"));
   tagSpan(chunked, JSON_DAIKIN_OUTDOOR);
   tagDivClose(chunked);
+#endif /* ENABLE_EXTRA_DIAG */
   tagLabelDiv(chunked, F("Date"));
   tagSpan(chunked, JSON_DATE);
   tagDivClose(chunked);
@@ -292,11 +297,11 @@ void contentStatus(ChunkedPrint &chunked) {
   chunked.print(F("</select>"
                   " Param "));
   for (byte i = 0; i < 2; i++) {
-    tagInputHex(chunked, POST_CMD_PARAM_1 + i, true);
+    tagInputHex(chunked, POST_CMD_PARAM_1 + i, true, false, 0x00);
   }
   chunked.print(F(" Value "));
   for (byte i = 0; i <= POST_CMD_VAL_4 - POST_CMD_VAL_1; i++) {
-    tagInputHex(chunked, POST_CMD_VAL_1 + i, false);
+    tagInputHex(chunked, POST_CMD_VAL_1 + i, false, false, 0x00);
   }
   tagSpan(chunked, JSON_WRITE_P1P2);
   tagDivClose(chunked);
@@ -319,6 +324,14 @@ void contentStatus(ChunkedPrint &chunked) {
 
 //            IP Settings
 void contentIp(ChunkedPrint &chunked) {
+
+  tagLabelDiv(chunked, F("MAC Address"));
+  for (byte i = 0; i < 6; i++) {
+    tagInputHex(chunked, POST_MAC + i, true, true, mac[i]);
+    if (i < 5) chunked.print(F(":"));
+  }
+  tagButton(chunked, F("Randomize"), ACT_MAC);
+  tagDivClose(chunked);
 
 #ifdef ENABLE_DHCP
   tagLabelDiv(chunked, F("Auto IP"));
@@ -367,7 +380,7 @@ void contentTcp(ChunkedPrint &chunked) {
   };
   tagSelect(chunked, POST_UDP_BROADCAST, optionsList, 2, localConfig.udpBroadcast);
   tagDivClose(chunked);
-  unsigned int value;
+  uint16_t value;
   for (byte i = 0; i < 2; i++) {
     switch (i) {
       case 0:
@@ -400,7 +413,10 @@ void contentP1P2(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Connection Timeout"));
   tagInputNumber(chunked, POST_TIMEOUT, F0THRESHOLD, 60, localConfig.connectTimeout, F("secs"));
   tagDivClose(chunked);
-  tagLabelDiv(chunked, F("Target Temp. Hysteresis"));
+  tagLabelDiv(chunked, F("EEPROM Write Quota"));
+  tagInputNumber(chunked, POST_QUOTA, 0, 100, localConfig.writeQuota, F("writes per day"));
+  tagDivClose(chunked);
+  tagLabelDiv(chunked, F("Target Temperature Hysteresis"));
   tagInputNumber(chunked, POST_HYSTERESIS, 1, 5, localConfig.hysteresis, F("\xB0"
                                                                            "C"));
   tagDivClose(chunked);
@@ -456,61 +472,6 @@ void tagRowPacket(ChunkedPrint &chunked, const byte packetType) {
   }
 }
 
-void tagInputNumber(ChunkedPrint &chunked, const byte name, unsigned int min, unsigned int max, unsigned int value, const __FlashStringHelper *units) {
-  chunked.print(F("<input class='s n' required type=number name="));
-  chunked.print(name, HEX);
-  chunked.print(F(" min="));
-  chunked.print(min);
-  chunked.print(F(" max="));
-  chunked.print(max);
-  chunked.print(F(" value="));
-  chunked.print(value);
-  chunked.print(F("> ("));
-  chunked.print(min);
-  chunked.print(F("~"));
-  chunked.print(max);
-  chunked.print(F(") "));
-  chunked.print(units);
-}
-
-void tagInputIp(ChunkedPrint &chunked, const byte name, byte ip[]) {
-  for (byte i = 0; i < 4; i++) {
-    chunked.print(F("<input name="));
-    chunked.print(name + i, HEX);
-    chunked.print(F(" class='p i' required maxlength=3 pattern='^(&bsol;d{1,2}|1&bsol;d&bsol;d|2[0-4]&bsol;d|25[0-5])$' value="));
-    chunked.print(ip[i]);
-    chunked.print(F(">"));
-    if (i < 3) chunked.print(F("."));
-  }
-}
-
-void tagInputHex(ChunkedPrint &chunked, const byte name, bool required) {
-  chunked.print(F("<input name="));
-  chunked.print(name, HEX);
-  if (required) {
-    chunked.print(F(" required"));  // first 3 bytes are required (1 byte packet type and 2 bytes param number)
-  }
-  chunked.print(F(" minlength=2 maxlength=2 class=i pattern='[a-fA-F&bsol;d]+'>"));
-}
-
-void tagLabelDiv(ChunkedPrint &chunked, const __FlashStringHelper *label) {
-  chunked.print(F("<div class=r>"
-                  "<label>"));
-  chunked.print(label);
-  chunked.print(F(":</label>"
-                  "<div>"));
-}
-
-void tagButton(ChunkedPrint &chunked, const __FlashStringHelper *flashString, byte value) {
-  chunked.print(F(" <button name="));
-  chunked.print(POST_ACTION, HEX);
-  chunked.print(F(" value="));
-  chunked.print(value);
-  chunked.print(F(">"));
-  chunked.print(flashString);
-  chunked.print(F("</button><br>"));
-}
-
 void tagSelect(ChunkedPrint &chunked, const byte name, const __FlashStringHelper *options[], const byte numOptions, byte value) {
   chunked.print(F("<select name="));
   chunked.print(name, HEX);
@@ -545,6 +506,65 @@ void tagCheckbox(ChunkedPrint &chunked, const byte name, const bool setting, con
     }
     chunked.print(F(">"));
   }
+}
+
+void tagInputNumber(ChunkedPrint &chunked, const byte name, uint16_t min, uint16_t max, uint16_t value, const __FlashStringHelper *units) {
+  chunked.print(F("<input class='s n' required type=number name="));
+  chunked.print(name, HEX);
+  chunked.print(F(" min="));
+  chunked.print(min);
+  chunked.print(F(" max="));
+  chunked.print(max);
+  chunked.print(F(" value="));
+  chunked.print(value);
+  chunked.print(F("> ("));
+  chunked.print(min);
+  chunked.print(F("~"));
+  chunked.print(max);
+  chunked.print(F(") "));
+  chunked.print(units);
+}
+
+void tagInputIp(ChunkedPrint &chunked, const byte name, byte ip[]) {
+  for (byte i = 0; i < 4; i++) {
+    chunked.print(F("<input name="));
+    chunked.print(name + i, HEX);
+    chunked.print(F(" class='p i' required maxlength=3 pattern='^(&bsol;d{1,2}|1&bsol;d&bsol;d|2[0-4]&bsol;d|25[0-5])$' value="));
+    chunked.print(ip[i]);
+    chunked.print(F(">"));
+    if (i < 3) chunked.print(F("."));
+  }
+}
+
+void tagInputHex(ChunkedPrint &chunked, const byte name, const bool required, const bool printVal, const byte value) {
+  chunked.print(F("<input name="));
+  chunked.print(name, HEX);
+  if (required) {
+    chunked.print(F(" required"));
+  }
+  chunked.print(F(" minlength=2 maxlength=2 class=i pattern='[a-fA-F&bsol;d]+' value='"));
+  if (printVal) {
+    chunked.print(hex(value));
+  }
+  chunked.print(F("'>"));
+}
+
+void tagLabelDiv(ChunkedPrint &chunked, const __FlashStringHelper *label) {
+  chunked.print(F("<div class=r>"
+                  "<label>"));
+  chunked.print(label);
+  chunked.print(F(":</label>"
+                  "<div>"));
+}
+
+void tagButton(ChunkedPrint &chunked, const __FlashStringHelper *flashString, byte value) {
+  chunked.print(F(" <button name="));
+  chunked.print(POST_ACTION, HEX);
+  chunked.print(F(" value="));
+  chunked.print(value);
+  chunked.print(F(">"));
+  chunked.print(flashString);
+  chunked.print(F("</button><br>"));
 }
 
 void tagDivClose(ChunkedPrint &chunked) {
@@ -640,11 +660,13 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
         chunked.print(daikinIndoor);
       }
       break;
+#ifdef ENABLE_EXTRA_DIAG
     case JSON_DAIKIN_OUTDOOR:
       {
         chunked.print(daikinOutdoor);
       }
       break;
+#endif /* ENABLE_EXTRA_DIAG */
     case JSON_DATE:
       {
         stringDate(chunked, date);
@@ -652,15 +674,18 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
       break;
     case JSON_DAIKIN_EEPROM:
       {
-        unsigned int days = (date[3] * 365) + ((date[4] - 1) * 30) + date[5];
-        unsigned int eepromDays = (eepromCount.eepromDate[3] * 365) + ((eepromCount.eepromDate[4] - 1) * 30) + eepromCount.eepromDate[5];
         chunked.print(eepromCount.daikinWrites);
-        chunked.print(F(" Total<br>"));
-        // if (eepromCount.eepromDate[5] == 0 || date[5] == 0) return;
-        chunked.print((unsigned int)(eepromCount.daikinWrites / (days - eepromDays + 1)));
+        chunked.print(F(" Total (since "));
+        stringDate(chunked, eepromCount.eepromDate);
+        chunked.print(F(")<br>"));
+        chunked.print((uint16_t)(eepromCount.daikinWrites / (days(date) - days(eepromCount.eepromDate) + 1)));
         chunked.print(F(" Average per Day (should be bellow 19)<br>"));
         chunked.print(eepromCount.yesterdayWrites);
-        chunked.print(F(" Yesterday"));
+        chunked.print(F(" Yesterday<br>"));
+        chunked.print(eepromCount.todayWrites);
+        chunked.print(F("/"));
+        chunked.print(localConfig.writeQuota);
+        chunked.print(F("Today (Total/Quota)"));
       }
       break;
     case JSON_CONTROLLER:
@@ -714,11 +739,20 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
         for (byte i = 0; i < P1P2_LAST; i++) {
           chunked.print(p1p2Count[i]);
           switch (i) {
-            case P1P2_READ:
-              chunked.print(F(" Read OK"));
+            case P1P2_READ_OK:
+              chunked.print(F(" Bus Read OK"));
               break;
-            case P1P2_WRITTEN:
-              chunked.print(F(" Write OK"));
+            case P1P2_WRITE_OK:
+              chunked.print(F(" Bus Write OK"));
+              break;
+            case P1P2_WRITE_QUOTA:
+              chunked.print(F(" EEPROM Write Quota Reached"));
+              break;
+            case P1P2_WRITE_QUEUE:
+              chunked.print(F(" Write Queue Full"));
+              break;
+            case P1P2_WRITE_INVALID:
+              chunked.print(F(" Write Command Invalid"));
               break;
             case P1P2_ERROR_PE:
               chunked.print(F(" Parity Read"));
