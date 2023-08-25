@@ -10,7 +10,7 @@
 
    processPost()
    - processes POST data from forms and buttons
-   - updates localConfig (in RAM)
+   - updates data.config (in RAM)
    - saves config into EEPROM
    - executes actions which do not require webserver restart
 
@@ -25,7 +25,7 @@ const byte POST_SIZE = 24;  // a smaller buffer for single post parameter + key
 // Actions that need to be taken after saving configuration.
 enum action_type : byte {
   ACT_NONE,
-  ACT_FACTORY,       // Load default factory settings (but keep MAC address)
+  ACT_DEFAULT,       // Load default factory settings (but keep MAC address)
   ACT_MAC,           // Generate new random MAC
   ACT_REBOOT,        // Reboot the microcontroller
   ACT_RESET_ETH,     // Ethernet reset
@@ -48,6 +48,7 @@ enum page : byte {
   PAGE_TCP,
   PAGE_P1P2,
   PAGE_FILTER,
+  PAGE_TOOLS,
   PAGE_WAIT,  // page with "Reloading. Please wait..." message.
   PAGE_DATA,  // d.json
 };
@@ -84,20 +85,20 @@ enum post_key : byte {
   POST_REM_IP,
   POST_REM_IP_1,
   POST_REM_IP_2,
-  POST_REM_IP_3,           // remote IP
-  POST_UDP,                // local UDP port
-  POST_WEB,                // web UI port
-  POST_CONTROL_MODE,       // controller mode
-  POST_SEND_ALL,           // send all packets
-  POST_COUNTER_PERIOD,     // period for counter requests
-  POST_SAVE_DATA_PACKETS,  // save data packets (send only if payload changed)
-  POST_TIMEOUT,            // connection timeout
-  POST_QUOTA,              // write throttle
-  POST_HYSTERESIS,         // temp setpoint hysteresis
-  POST_CMD_TYPE,           // write command packet type
-  POST_CMD_PARAM_1,        // write command parameter number
-  POST_CMD_PARAM_2,        // write command parameter number
-  POST_CMD_VAL_1,          // write command parameter value
+  POST_REM_IP_3,        // remote IP
+  POST_UDP,             // local UDP port
+  POST_WEB,             // web UI port
+  POST_CONTROL_MODE,    // controller mode
+  POST_SEND_ALL,        // send all packets
+  POST_COUNTER_PERIOD,  // period for counter requests
+  POST_DATA_PACKETS,    // save data packets (send only if payload changed)
+  POST_TIMEOUT,         // connection timeout
+  POST_QUOTA,           // write throttle
+  POST_HYSTERESIS,      // temp setpoint hysteresis
+  POST_CMD_TYPE,        // write command packet type
+  POST_CMD_PARAM_1,     // write command parameter number
+  POST_CMD_PARAM_2,     // write command parameter number
+  POST_CMD_VAL_1,       // write command parameter value
   POST_CMD_VAL_2,
   POST_CMD_VAL_3,
   POST_CMD_VAL_4,
@@ -157,7 +158,7 @@ void recvWeb(EthernetClient &client) {
     }
   }
   // Actions that require "please wait" page
-  if (action == ACT_WEB || action == ACT_MAC || action == ACT_RESET_ETH || action == ACT_REBOOT || action == ACT_FACTORY) {
+  if (action == ACT_WEB || action == ACT_MAC || action == ACT_RESET_ETH || action == ACT_REBOOT || action == ACT_DEFAULT) {
     reqPage = PAGE_WAIT;
   }
   // Send page
@@ -171,7 +172,7 @@ void recvWeb(EthernetClient &client) {
           // close old webserver TCP connections
           disconSocket(s);
         }
-        webServer = EthernetServer(localConfig.webPort);
+        webServer = EthernetServer(data.config.webPort);
         break;
       case ACT_MAC:
       case ACT_RESET_ETH:
@@ -182,7 +183,7 @@ void recvWeb(EthernetClient &client) {
         startEthernet();
         break;
       case ACT_REBOOT:
-      case ACT_FACTORY:
+      case ACT_DEFAULT:
         resetFunc();
         break;
       default:
@@ -193,7 +194,7 @@ void recvWeb(EthernetClient &client) {
 }
 
 
-// This function stores POST parameter values in localConfig.
+// This function stores POST parameter values in data.config.
 // Most changes are saved and applied immediatelly, some changes (IP settings, web server port, reboot) are saved but applied later after "please wait" page is sent.
 void processPost(EthernetClient &client) {
   byte command[1 + 2 + MAX_PARAM_SIZE];  // 1 byte packet type + 2 bytes param number + MAX_PARAM_SIZE bytes param value
@@ -232,12 +233,12 @@ void processPost(EthernetClient &client) {
 #ifdef ENABLE_DHCP
       case POST_DHCP:
         {
-          localConfig.enableDhcp = byte(paramValueUint);
+          data.config.enableDhcp = byte(paramValueUint);
         }
         break;
       case POST_DNS ... POST_DNS_3:
         {
-          localConfig.dns[paramKeyByte - POST_DNS] = byte(paramValueUint);
+          data.config.dns[paramKeyByte - POST_DNS] = byte(paramValueUint);
         }
         break;
 #endif /* ENABLE_DHCP */
@@ -267,52 +268,52 @@ void processPost(EthernetClient &client) {
           action = ACT_RESET_ETH;  // this RESET_ETH is triggered when the user changes anything on the "IP Settings" page.
                                    // No need to trigger RESET_ETH for other cases (POST_SUBNET, POST_GATEWAY etc.)
                                    // if "Randomize" button is pressed, action is set to ACT_MAC
-          mac[paramKeyByte - POST_MAC] = strToByte(paramValue);
+          data.mac[paramKeyByte - POST_MAC] = strToByte(paramValue);
         }
         break;
       case POST_IP ... POST_IP_3:
         {
-          localConfig.ip[paramKeyByte - POST_IP] = byte(paramValueUint);
+          data.config.ip[paramKeyByte - POST_IP] = byte(paramValueUint);
         }
         break;
       case POST_SUBNET ... POST_SUBNET_3:
         {
-          localConfig.subnet[paramKeyByte - POST_SUBNET] = byte(paramValueUint);
+          data.config.subnet[paramKeyByte - POST_SUBNET] = byte(paramValueUint);
         }
         break;
       case POST_GATEWAY ... POST_GATEWAY_3:
         {
-          localConfig.gateway[paramKeyByte - POST_GATEWAY] = byte(paramValueUint);
+          data.config.gateway[paramKeyByte - POST_GATEWAY] = byte(paramValueUint);
         }
         break;
       case POST_REM_IP ... POST_REM_IP_3:
         {
-          localConfig.remoteIp[paramKeyByte - POST_REM_IP] = byte(paramValueUint);
+          data.config.remoteIp[paramKeyByte - POST_REM_IP] = byte(paramValueUint);
         }
         break;
       case POST_UDP_BROADCAST:
-        localConfig.udpBroadcast = byte(paramValueUint);
+        data.config.udpBroadcast = byte(paramValueUint);
         break;
       case POST_UDP:
         {
-          if (localConfig.udpPort != paramValueUint) {
-            localConfig.udpPort = paramValueUint;
+          if (data.config.udpPort != paramValueUint) {
+            data.config.udpPort = paramValueUint;
             Udp.stop();
-            Udp.begin(localConfig.udpPort);
+            Udp.begin(data.config.udpPort);
           }
         }
         break;
       case POST_WEB:
         {
-          if (paramValueUint != localConfig.webPort) {  // continue only if the value changed and it differs from WebUI port
-            localConfig.webPort = paramValueUint;
+          if (paramValueUint != data.config.webPort) {  // continue only if the value changed
+            data.config.webPort = paramValueUint;
             action = ACT_WEB;
           }
         }
         break;
       case POST_CONTROL_MODE:
-        localConfig.controllerMode = byte(paramValueUint);
-        switch (localConfig.controllerMode) {
+        data.config.controllerMode = byte(paramValueUint);
+        switch (data.config.controllerMode) {
           case CONTROL_DISABLED:
             controllerState = DISABLED;
             break;
@@ -331,23 +332,23 @@ void processPost(EthernetClient &client) {
         }
         break;
       case POST_TIMEOUT:
-        localConfig.connectTimeout = byte(paramValueUint);
+        data.config.connectTimeout = byte(paramValueUint);
         break;
       case POST_QUOTA:
-        localConfig.writeQuota = byte(paramValueUint);
+        data.config.writeQuota = byte(paramValueUint);
         break;
       case POST_HYSTERESIS:
-        localConfig.hysteresis = byte(paramValueUint);
+        data.config.hysteresis = byte(paramValueUint);
         break;
       case POST_SEND_ALL:
-        localConfig.sendAllPackets = byte(paramValueUint);
-        memset(savedPackets, 0xFF, sizeof(savedPackets));  // reset saved packets whenever some setting on "Packet Filter" page change
+        data.config.sendAllPackets = byte(paramValueUint);
+        memset(savedPackets, 0xFF, sizeof(savedPackets));  // reset saved packets whenever some setting on "Packet Filter" page changes
         break;
       case POST_COUNTER_PERIOD:
-        localConfig.counterPeriod = byte(paramValueUint);
+        data.config.counterPeriod = byte(paramValueUint);
         break;
-      case POST_SAVE_DATA_PACKETS:
-        localConfig.saveDataPackets = byte(paramValueUint);
+      case POST_DATA_PACKETS:
+        data.config.sendDataPackets = byte(paramValueUint);
         break;
       case POST_ACTION:
         action = action_type(paramValueUint);
@@ -357,9 +358,9 @@ void processPost(EthernetClient &client) {
     }
   }  // while (point != NULL)
   switch (action) {
-    case ACT_FACTORY:
+    case ACT_DEFAULT:
       {
-        localConfig = DEFAULT_CONFIG;
+        data.config = DEFAULT_CONFIG;
         setPacketStatus(PACKET_TYPE_COUNTER, PACKET_SENT, true);
         for (byte i = PACKET_TYPE_DATA[FIRST]; i <= PACKET_TYPE_DATA[LAST]; i++) {
           setPacketStatus(i, PACKET_SENT, true);

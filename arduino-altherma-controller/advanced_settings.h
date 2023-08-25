@@ -48,7 +48,7 @@ const uint16_t TCP_RETRANSMISSION_TIMEOUT = 50;  // Ethernet controller’s time
 const byte TCP_RETRANSMISSION_COUNT = 3;         // Number of transmission attempts the Ethernet controller will make before giving up (see https://www.arduino.cc/reference/en/libraries/ethernet/ethernet.setretransmissioncount/)
 const uint16_t FETCH_INTERVAL = 2000;            // Fetch API interval (ms) for the Modbus Status webpage to renew data from JSON served by Arduino
 
-const byte CONFIG_START = 96;    // Start address where config and counters are saved in EEPROM
+const byte DATA_START = 96;      // Start address where config and counters are saved in EEPROM
 const byte EEPROM_INTERVAL = 6;  // Interval (hours) for saving Modbus statistics to EEPROM (in order to minimize writes to EEPROM)
 
 /****** EXTRA FUNCTIONS ******/
@@ -65,23 +65,23 @@ const byte EEPROM_INTERVAL = 6;  // Interval (hours) for saving Modbus statistic
   1) User clicks "Load default settings" in WebUI (factory reset configuration, keeps MAC)
   2) VERSION_MAJOR changes (factory reset configuration AND generates new MAC)
 */
-const config_type DEFAULT_CONFIG = {
-  { 192, 168, 1, 254 },  // ip
-  { 255, 255, 255, 0 },  // subnet
-  { 192, 168, 1, 1 },    // gateway
-  { 192, 168, 1, 1 },    // dns
-  false,                 // enableDhcp
-  { 192, 168, 1, 22 },   // remoteIp
-  true,                  // udpBroadcast
-  503,                   // udpPort
-  80,                    // webPort
-  CONTROL_MANUAL,        // controllerMode
-  (F0THRESHOLD * 2),     // connectTimeout
-  false,                 // notSupported
-  1,                     // hysteresis
-  24,                    // writeQuota
-  false,                 // sendAllPackets
-  10,                    // counterPeriod
-  true,                  // saveDataPackets
-  {}                     // packetStatus
+const config_t DEFAULT_CONFIG = {
+  { 192, 168, 1, 254 },     // ip
+  { 255, 255, 255, 0 },     // subnet
+  { 192, 168, 1, 1 },       // gateway
+  { 192, 168, 1, 1 },       // Dns (only used if ENABLE_DHCP)
+  false,                    // enableDhcp (only used if ENABLE_DHCP)
+  { 192, 168, 1, 22 },      // remoteIp
+  true,                     // udpBroadcast
+  503,                      // udpPort
+  80,                       // webPort
+  CONTROL_MANUAL,           // controllerMode
+  (F0THRESHOLD * 2),        // connectTimeout
+  false,                    // notSupported
+  1,                        // hysteresis
+  24,                       // writeQuota
+  false,                    // sendAllPackets
+  10,                       // counterPeriod
+  DATA_CHANGE_AND_REQUEST,  // sendDataPackets
+  {}                        // packetStatus
 };

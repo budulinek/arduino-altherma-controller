@@ -27,7 +27,7 @@ void recvUdp() {
   uint16_t udpLen = Udp.parsePacket();
   if (udpLen) {
     byte command[1 + 2 + MAX_PARAM_SIZE];  // 1 byte packet type + 2 bytes param number + MAX_PARAM_SIZE bytes param value
-    if (udpLen > sizeof(command) || (!localConfig.udpBroadcast && Udp.remoteIP() != IPAddress(localConfig.remoteIp))) {
+    if (udpLen > sizeof(command) || (!data.config.udpBroadcast && Udp.remoteIP() != IPAddress(data.config.remoteIp))) {
       while (Udp.available()) Udp.read();
       // TODO error: UDP too long or wrong remote IP
       return;
@@ -35,7 +35,7 @@ void recvUdp() {
     Udp.read(command, sizeof(command));
     checkCommand(command, byte(udpLen));
 #ifdef ENABLE_EXTRA_DIAG
-    udpCount[UDP_RECEIVED]++;
+    data.udpCnt[UDP_RECEIVED]++;
 #endif /* ENABLE_EXTRA_DIAG */
   }
 }
@@ -53,10 +53,10 @@ void checkCommand(byte command[], byte cmdLen) {
         }
       }
     } else {
-      p1p2Count[P1P2_WRITE_INVALID]++;  // Write Command Invalid
+      data.p1p2Cnt[P1P2_WRITE_INVALID]++;  // Write Command Invalid
     }
   } else {
-    p1p2Count[P1P2_WRITE_QUEUE]++;  // TODO error: Write Queue Full
+    data.p1p2Cnt[P1P2_WRITE_QUEUE]++;  // TODO error: Write Queue Full
   }
 }
 
@@ -69,15 +69,15 @@ void deleteCmd()  // delete command from queue
 }
 
 bool getPacketStatus(const byte packetType, const byte status) {
-  return (localConfig.packetStatus[status][packetType / 8] & masks[packetType & 7]) > 0;
+  return (data.config.packetStatus[status][packetType / 8] & masks[packetType & 7]) > 0;
 }
 
 bool setPacketStatus(const byte packetType, byte status, const bool value) {
   if (getPacketStatus(packetType, status) == value) return false;
   if (value == 0) {
-    localConfig.packetStatus[status][packetType / 8] &= ~masks[packetType & 7];
+    data.config.packetStatus[status][packetType / 8] &= ~masks[packetType & 7];
   } else {
-    localConfig.packetStatus[status][packetType / 8] |= masks[packetType & 7];
+    data.config.packetStatus[status][packetType / 8] |= masks[packetType & 7];
   }
   return true;  // return true if value changed
 }

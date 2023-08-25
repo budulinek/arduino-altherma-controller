@@ -11,6 +11,7 @@
   - [TCP/UDP Settings](#tcpudp-settings)
   - [P1P2 Settings](#p1p2-settings)
   - [Packet Filter](#packet-filter)
+  - [Tools](#tools)
 * [Integration](#integration)
   - [Loxone](#loxone)
   - [Other systems](#other-systems)
@@ -66,7 +67,9 @@ Here is my HW setup (cheap Arduino Uno clone + W5500 Ethernet shield from Keyest
 
 You can either:
 - **Download and flash my pre-compiled firmware** from "Releases".
-- **Compile your own firmware**. Download this repository (all *.ino files) and open arduino-altherma-controller.ino in Arduino IDE. Download all required libraries (they are available in "library manager"). If you want, you can check the default factory settings (can be later changed via web interface) and advanced settings (can only be changed in the sketch). Compile and upload your program to Arduino.
+- **Compile your own firmware**. Download this repository (all *.ino files) and open arduino-altherma-controller.ino in Arduino IDE. If you want, you can check advanced_settings.h for advanced settings (can only be changed in the sketch) and for default factory settings (can be later changed via web interface). Download all required libraries, compile and upload your program to Arduino. The program uses the following external libraries (all are available in Arduino IDE's "library manager"):
+ - CircularBuffer (https://github.com/rlogiacco/CircularBuffer)
+ - StreamLib (https://github.com/jandrassy/StreamLib)
 
 Connect your Arduino to ethernet and use your web browser to access the web interface on default IP:  http://192.168.1.254
 
@@ -81,11 +84,9 @@ This controller has a built-in webserver which allows you to configure the contr
 
 <img src="pics/daikin1.png" alt="daikin1" style="zoom:100%;" />
 
-**Load Default Settings**. Loads default settings (see DEFAULT_CONFIG in advanced settings). MAC address is retained.
-
-**Reboot**.
-
 **EEPROM Health**. Keeps track of EEPROM write cycles (this counter is persistent, never cleared during factory resets). Replace your Arduino once you reach 100 000 write cycles (with 6 hours EEPROM_INTERVAL you have more than 50 years lifespan).
+
+**Ethernet Chip**. Wiznet chip on the ethernet shield.
 
 **MAC Address**. First 3 bytes are fixed 90:A2:DA, remaining 3 bytes are random. You can also set manual MAC in IP Settings.
 
@@ -100,7 +101,7 @@ This controller has a built-in webserver which allows you to configure the contr
 * **Connected**. The controller is connected to the P1/P2 bus (to the main Daikin controller). Once connected, the controller can also:
   - show Altherma model in **Daikin Unit**
   - periodically request, read (and send via UDP) Altherma counters
-  - control Altherma by sending **Write Packet** through the web interface
+  - control Altherma by sending **Write Command** through the web interface
   - control Altherma by sending commands via UDP
 * **Not Supported by the Pump**. The controller failed to connect to the P1/P2 bus (to the main Daikin controller) because it is not supported by the heat pump. The controller will not reconnect even if it is in the Auto Connect mode (see P1P2 Settings) but the user can still try to (re)connect manually. The **Not Supported by the Pump** status occurs when:
   - The heat pump (the main Daikin controller) does not support external controllers.
@@ -111,13 +112,15 @@ This controller has a built-in webserver which allows you to configure the contr
 
 **Date**. Shows internal date and time of the heat pump.
 
-**Daikin EEPROM Writes**. Every time you send **Write Packet** through the web interface or a commands via UDP, settings of the main Daikin controller (= controller on your heat pump) change and new values are written to its internal EEPROM. **<ins>Your main Daikin controller's EEPROM has a limited number of writes, so keep an eye on this counter in order to prevent EEPROM wear! It is adviced to do max 7000 writes per year (19 writes/day on average)</ins>**.
-* **Total**. Total number of writes made by this Arduino controller since its first connection to the heat pump.
-* **Average per Day**. Average number of write cycles, should be bellow 19. Calculated from internal date of the heat pump, so if you change the date in heat pump settings, it is recommended to reset the Daikin EEPROM Writes counter.
+**Daikin EEPROM Writes**. Every time you send **Write Command** through the web interface or a command via UDP, settings of the main Daikin controller (= controller on your heat pump) change and new values are written to its internal EEPROM. **<ins>Your main Daikin controller's EEPROM has a limited number of writes, so keep an eye on this counter in order to prevent EEPROM wear! It is adviced to do max 7000 writes per year (19 writes/day on average)</ins>**.
+* **Stats since ...**. Date and time since when **Daikin EEPROM Writes** are recorded. If you significantly change the date on the heat pump, reset the stats (so that **Average per Day** is calculated properly).
+* **Total Commands**. Total number of writes made by this Arduino controller since the date and time recorded in **Stats since ...**.
+* **Average per Day**. Daily average EEPROM writes, should be bellow 19. Calculated from internal date of the heat pump, so if you change the date in heat pump settings, it is recommended to reset the Daikin EEPROM Writes counter.
 * **Yesterday**. Number of writes made yesterday, updated at midnight. Should not significantly exceed average writes per day.
+* **Today**. Number of writes made today / out of daily **EEPROM Write Quota**. If you reach the quota and you really need more, you can temporarily (!) increase it in the **P1P2 Settings**
 
-**Write Packet**. Send a P1/P2 write command directly from web interface. For testing or reverse-engineering P1/P2 write commands. The format of the write command send via web interface is identical to the command sent via UDP:
-* **Type**. The first byte is the packet type. Only supported packet types are listed in the drop-down select menu.
+**Write Command**. You can send a P1/P2 write command directly from web interface, for testing or reverse-engineering P1/P2 write commands. The format of the write command send via web interface is identical to the command sent via UDP:
+* **Packet Type**. The first byte is the packet type. Only supported packet types are listed in the drop-down menu.
 * **Param**. Parameter number, two bytes **<ins>in little endian format</ins>**! For example, parameter number 03 is inserted as `03` `00`.
 * **Value**. Parameter value, the number of bytes differs for various packet types. See PACKET_PARAM_VAL_SIZE in advanced settings for the correct number of bytes. Value is also **<ins>in little endian format</ins>**!
 
@@ -125,11 +128,10 @@ This controller has a built-in webserver which allows you to configure the contr
 * **Bus Read OK**. Number of packets read from the P1/P2 bus, without errors. Not all of them are sent via UDP (see the **Packet Filter** settings). Packets are read from the P1/P2 bus (and sent via UDP) even if the controller is not connected to the P1/P2 bus.
 * **Bus Write OK**. Number of packets written to the P1/P2 bus. Includes both packets written automatically by the controller (requests for the counters packets), write commands from the web interface and write commands received via UDP. Writing to the P1/P2 bus is only possible if the controller is connected to the P1/P2 bus (to the main Daikin controller).
 * **EEPROM Write Quota Reached**. Daily EEPROM Write Quota (configured in **P1P2 Settings**) was reached. The command (received via UDP or from the web interface) was dropped.
-* **Write Queue Full**. Internal queue (circular buffer) for commands is full. The command (received via UDP or from the web interface) was dropped.
+* **Write Command Queue Full**. Internal queue (circular buffer) for commands is full. The command (received via UDP or from the web interface) was dropped.
 * **Write Command Invalid**. Command received via UDP or from the web interface was invalid, it was dropped. Possible reasons:
   - Packet type (first byte) is not supported (PACKET_PARAM_VAL_SIZE in advanced settings is set to zero).
   - Incorrect packet length. Command should have 1 byte for type, 2 bytes for parameter number and the correct numer of bytes for the parameter value (see PACKET_PARAM_VAL_SIZE in advanced settings).
-
 * **Parity Read Error**.
 * **Too Long Read Error**. Packet received is longer than the read buffer.
 * **Start Bit Write Error**. Start bit error during write.
@@ -180,11 +182,13 @@ This controller has a built-in webserver which allows you to configure the contr
 * **Manual Connect** (default). Same as disabled, but manual connection to the P1/P2 bus is possible (see the P1P2 Status page). The controller does not reconnect to the P1/P2 bus after reboot or if the connection is interrupted (see **Connection Timeout**).
 * **Auto Connect** (advanced). The controller tries to (re)connect to the P1/P2 bus (to the main Daikin controller) after (re)start, or if the connection is interrupted (see **Connection Timeout**). No attempts to reconnect are made if the controller is **Not Supported by the Pump** (see the P1P2 Status page). Enable **Auto Connect** at your own risk and only after you have successfuly connected manually! **Check the P1P2 Status page for P1/P2 errors and monitor Daikin EEPROM Writes in order to minimize Daikin controller EEPROM wear!**
 
+**EEPROM Write Quota**. Daily quota for writes to the EEPROM of the main Daikin controller. Every command sent via web interface (**Write Command** on **P1P2 Status** page) or via UDP = write cycle to the Daikin EEPROM. If the daily quota is reached, the command is dropped.
+
 **Connection Timeout**.
 * In **Manual Connect** mode, an attempt to connect to the P1/P2 bus (to the main Daikin controller) fails if connection is not established within the **Connection Timeout**. After timeout, the controller will show **Disconnected** state on the Status Page. Also, the controller disconnects from the P1/P2 bus if regular communication with the heat pump (with the main Daikin controller) is interrupted for a period longer than the **Connection Timeout**.
 * In **Auto Connect** mode, the controller will transition to **Connecting...** state if regular communication with the heat pump (with the main Daikin controller) is interrupted for a period longer than the **Connection Timeout**.
 
-**Target Temp. Hysteresis**. Hysteresis for writing target temperature or target setpoint commands (packet type 0x36). Applies for write commands received via UDP. The purpose is to minimize Daikin controller EEPROM wear.
+**Target Temperature Hysteresis**. Hysteresis for writing target temperature or target setpoint commands (packet type 0x36). Applies for write commands received via UDP. The purpose is to minimize Daikin controller EEPROM wear.
 
 ## Packet Filter
 
@@ -194,11 +198,21 @@ The **Packet Filter** page lists all packet types observed on the P1/P2 bus. Som
 
 **Send All Packet Types**. All packets read from the P1/P2 bus are sent via UDP (including packet types which were not yet observed). There is a lot of communication going on on the P1/P2 bus, so use with caution!
 
-**Counter Packet**. Counter packet is periodically requested by the controller (only works if the controller is connected to the P1/P2 bus). Set the period for the counter packet requests.
+**Counters Packet**. Counter packet is periodically requested by the controller (only works if the controller is connected to the P1/P2 bus). Set the period for the counter packet requests.
 
 **Data Packets**.
 * **Always Send (~770ms cycle)**. Data packets are always sent via UDP, whenever they are read from the P1/P2 bus. Data packets are regularly exchanged between the heat pump and the main Daikin controller every 770ms.
-* **Send If Payload Changed**. The controller stores data packet payloads in its RAM. Data packets are sent via UDP only if their payload changes.
+* **If Payload Changed or When Counters Requested**. The controller stores data packet payloads in its RAM. Data packets are sent via UDP:
+  - if their payload changed
+  - or when the counters packet is requested (see the counters packet request period)
+* **Only If Payload Changed**. Data packets are sent via UDP only if their payload changed.
+
+## Tools
+<img src="pics/daikin7.png" alt="daikin7" style="zoom:100%;" />
+
+**Load Default Settings**. Loads default settings (see DEFAULT_CONFIG in advanced settings). MAC address is retained.
+
+**Reboot**.
 
 # Integration
 
