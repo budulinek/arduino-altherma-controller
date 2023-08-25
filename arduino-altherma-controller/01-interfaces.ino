@@ -49,19 +49,19 @@ void startEthernet() {
     delay(ETH_RESET_DELAY);
   }
 #ifdef ENABLE_DHCP
-  if (localConfig.enableDhcp) {
-    dhcpSuccess = Ethernet.begin(mac);
+  if (data.config.enableDhcp) {
+    dhcpSuccess = Ethernet.begin(data.mac);
   }
-  if (!localConfig.enableDhcp || dhcpSuccess == false) {
-    Ethernet.begin(mac, localConfig.ip, localConfig.dns, localConfig.gateway, localConfig.subnet);
+  if (!data.config.enableDhcp || dhcpSuccess == false) {
+    Ethernet.begin(data.mac, data.config.ip, data.config.dns, data.config.gateway, data.config.subnet);
   }
 #else  /* ENABLE_DHCP */
-  Ethernet.begin(mac, localConfig.ip, {}, localConfig.gateway, localConfig.subnet);  // No DNS
+  Ethernet.begin(data.mac, data.config.ip, {}, data.config.gateway, data.config.subnet);  // No DNS
 #endif /* ENABLE_DHCP */
   W5100.setRetransmissionTime(TCP_RETRANSMISSION_TIMEOUT);
   W5100.setRetransmissionCount(TCP_RETRANSMISSION_COUNT);
-  webServer = EthernetServer(localConfig.webPort);
-  Udp.begin(localConfig.udpPort);
+  webServer = EthernetServer(data.config.webPort);
+  Udp.begin(data.config.udpPort);
   webServer.begin();
 #if MAX_SOCK_NUM > 4
   if (W5100.getChip() == 51) maxSockNum = 4;  // W5100 chip never supports more than 4 sockets
@@ -72,7 +72,7 @@ void (*resetFunc)(void) = 0;  //declare reset function at address 0
 
 #ifdef ENABLE_DHCP
 void maintainDhcp() {
-  if (localConfig.enableDhcp && dhcpSuccess == true) {  // only call maintain if initial DHCP request by startEthernet was successfull
+  if (data.config.enableDhcp && dhcpSuccess == true) {  // only call maintain if initial DHCP request by startEthernet was successfull
     byte maintainResult = Ethernet.maintain();
     if (maintainResult == 1 || maintainResult == 3) {  // renew failed or rebind failed
       dhcpSuccess = false;
@@ -102,13 +102,13 @@ const uint32_t ROLLOVER = 0xFFFFFF00;
 bool rollover() {
   // synchronize roll-over of run time, data counters and modbus stats to zero, at 0xFFFFFF00
   for (byte i = 0; i < P1P2_LAST; i++) {
-    if (p1p2Count[i] > ROLLOVER) {
+    if (data.p1p2Cnt[i] > ROLLOVER) {
       return true;
     }
   }
 #ifdef ENABLE_EXTRA_DIAG
   for (byte i = 0; i < UDP_LAST; i++) {
-    if (udpCount[i] > ROLLOVER) {
+    if (data.udpCnt[i] > ROLLOVER) {
       return true;
     }
   }
@@ -119,52 +119,37 @@ bool rollover() {
   return false;
 }
 
+// resets counters to 0: data.p1p2Cnt, data.udpCnt
 void resetStats() {
-  memset(p1p2Count, 0, sizeof(p1p2Count));
+  memset(data.statsDate, 0, sizeof(data.statsDate));
+  memset(data.p1p2Cnt, 0, sizeof(data.p1p2Cnt));
 #ifdef ENABLE_EXTRA_DIAG
-  memset(udpCount, 0, sizeof(udpCount));
+  memset(data.udpCnt, 0, sizeof(data.udpCnt));
   remaining_seconds = -(millis() / 1000);
 #endif /* ENABLE_EXTRA_DIAG */
-  updateEeprom();
 }
 
 void resetEepromStats() {
-  uint32_t tempArduinoEeprom = eepromCount.eepromWrites;
-  memset(&eepromCount, 0, sizeof(struct_eeprom));
-  eepromCount.eepromWrites = tempArduinoEeprom;
-  updateEeprom();
+  memset(&data.eepromDaikin, 0, sizeof(eeprom_t));
 }
 
-
+// generate new MAC (bytes 0, 1 and 2 are static, bytes 3, 4 and 5 are generated randomly)
 void generateMac() {
   // Marsaglia algorithm from https://github.com/RobTillaart/randomHelpers
   seed1 = 36969L * (seed1 & 65535L) + (seed1 >> 16);
   seed2 = 18000L * (seed2 & 65535L) + (seed2 >> 16);
   uint32_t randomBuffer = (seed1 << 16) + seed2; /* 32-bit random */
-  memcpy(mac, MAC_START, 3);                     // set first 3 bytes
+  memcpy(data.mac, MAC_START, 3);                // set first 3 bytes
   for (byte i = 0; i < 3; i++) {
-    mac[i + 3] = randomBuffer & 0xFF;  // random last 3 bytes
+    data.mac[i + 3] = randomBuffer & 0xFF;  // random last 3 bytes
     randomBuffer >>= 8;
   }
 }
 
 void updateEeprom() {
   eepromTimer.sleep(EEPROM_INTERVAL * 60UL * 60UL * 1000UL);  // EEPROM_INTERVAL is in hours, sleep is in milliseconds!
-  eepromCount.eepromWrites++;                                 // we assume that at least some bytes are written to EEPROM during EEPROM.update or EEPROM.put
-  byte address = CONFIG_START;
-  EEPROM.put(address, eepromCount);
-  address += sizeof(eepromCount);
-  EEPROM.put(address, VERSION[0]);
-  address += 1;
-  EEPROM.put(address, mac);
-  address += 6;
-  EEPROM.put(address, localConfig);
-  address += sizeof(localConfig);
-  EEPROM.put(address, p1p2Count);
-#ifdef ENABLE_EXTRA_DIAG
-  address += sizeof(p1p2Count);
-  EEPROM.put(address, udpCount);
-#endif /* ENABLE_EXTRA_DIAG */
+  data.eepromWrites++;                                        // we assume that at least some bytes are written to EEPROM during EEPROM.update or EEPROM.put
+  EEPROM.put(DATA_START, data);
 }
 
 #if MAX_SOCK_NUM == 8
@@ -223,7 +208,7 @@ void manageSockets() {
               W5100.execCmdSn(s, Sock_DISCON);  //  send DISCON command...
               lastSocketUse[s] = millis();      //   record time at which it was sent...
                                                 // status becomes LAST_ACK for short time
-            } else if ((W5100.readSnPORT(s) == localConfig.webPort && sockAge > WEB_IDLE_TIMEOUT) && sockAge > maxAge) {
+            } else if ((W5100.readSnPORT(s) == data.config.webPort && sockAge > WEB_IDLE_TIMEOUT) && sockAge > maxAge) {
               oldest = s;        //     record the socket number...
               maxAge = sockAge;  //      and make its age the new max age.
             }
@@ -263,22 +248,22 @@ void disconSocket(byte s) {
 }
 
 void manageController() {
-  if ((controllerState == NOT_SUPPORTED) != localConfig.notSupported) {
-    localConfig.notSupported = (controllerState == NOT_SUPPORTED);
+  if ((controllerState == NOT_SUPPORTED) != data.config.notSupported) {
+    data.config.notSupported = (controllerState == NOT_SUPPORTED);
     updateEeprom();
   }
   switch (controllerState) {
     case DISABLED:
     case DISCONNECTED:
     case NOT_SUPPORTED:
-      connectionTimer.sleep(localConfig.connectTimeout * 1000UL);
+      connectionTimer.sleep(data.config.connectTimeout * 1000UL);
       controllerId = 0x00;
       FxAbsentCnt[0] = -1;
       FxAbsentCnt[1] = -1;
       cmdQueue.clear();
       indoorInQueue = false;
       outdoorInQueue = false;
-      if (localConfig.controllerMode == CONTROL_AUTO && controllerState == DISCONNECTED) {
+      if (data.config.controllerMode == CONTROL_AUTO && controllerState == DISCONNECTED) {
         controllerState = CONNECTING;
       }
       break;
@@ -292,10 +277,13 @@ void manageController() {
         }
       }
       if (counterRequestTimer.isOver()) {
-        counterRequestTimer.sleep(localConfig.counterPeriod * 60UL * 1000UL);
+        counterRequestTimer.sleep(data.config.counterPeriod * 60UL * 1000UL);
         cmdQueue.push(2);
         cmdQueue.push(PACKET_TYPE_COUNTER);
         cmdQueue.push(0);
+        if (data.config.sendDataPackets == DATA_CHANGE_AND_REQUEST) {
+          memset(savedPackets, 0xFF, sizeof(savedPackets));  // reset saved packets
+        }
       }
       if (daikinIndoor[0] == '\0' && indoorInQueue == false) {
         cmdQueue.push(2);

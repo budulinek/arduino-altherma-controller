@@ -8,7 +8,7 @@
    - also displays buttons for some of the pages
    - in order to save flash memory, some HTML closing tags are omitted, new lines in HTML code are also omitted
 
-   contentInfo(), contentStatus(), contentIp(), contentTcp(), contentP1P2()
+   contentInfo(), contentStatus(), contentIp(), contentTcp(), contentP1P2(), contentTools()
    - render the content of the requested page
 
    contentWait()
@@ -77,9 +77,9 @@ An advantage of HTTP 1.1 is
                   "<meta"));
   if (reqPage == PAGE_WAIT) {  // redirect to new IP and web port
     chunked.print(F(" http-equiv=refresh content=5;url=http://"));
-    chunked.print(IPAddress(localConfig.ip));
+    chunked.print(IPAddress(data.config.ip));
     chunked.print(F(":"));
-    chunked.print(localConfig.webPort);
+    chunked.print(data.config.webPort);
   }
   chunked.print(F(">"
                   "<title>Altherma UDP Controller</title>"
@@ -181,6 +181,9 @@ An advantage of HTTP 1.1 is
     case PAGE_FILTER:
       contentFilter(chunked);
       break;
+    case PAGE_TOOLS:
+      contentTools(chunked);
+      break;
     case PAGE_WAIT:
       contentWait(chunked);
       break;
@@ -203,14 +206,12 @@ void contentInfo(ChunkedPrint &chunked) {
   chunked.print(VERSION[0]);
   chunked.print(F("."));
   chunked.print(VERSION[1]);
-  tagButton(chunked, F("Load Default Settings"), ACT_FACTORY);
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Microcontroller"));
   chunked.print(BOARD);
-  tagButton(chunked, F("Reboot"), ACT_REBOOT);
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("EEPROM Health"));
-  chunked.print(eepromCount.eepromWrites);
+  chunked.print(data.eepromWrites);
   chunked.print(F(" Write Cycles"));
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Ethernet Chip"));
@@ -238,14 +239,14 @@ void contentInfo(ChunkedPrint &chunked) {
 
   tagLabelDiv(chunked, F("MAC Address"));
   for (byte i = 0; i < 6; i++) {
-    chunked.print(hex(mac[i]));
+    chunked.print(hex(data.mac[i]));
     if (i < 5) chunked.print(F(":"));
   }
   tagDivClose(chunked);
 
 #ifdef ENABLE_DHCP
   tagLabelDiv(chunked, F("DHCP Status"));
-  if (!localConfig.enableDhcp) {
+  if (!data.config.enableDhcp) {
     chunked.print(F("Disabled"));
   } else if (dhcpSuccess == true) {
     chunked.print(F("Success"));
@@ -278,11 +279,12 @@ void contentStatus(ChunkedPrint &chunked) {
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Daikin EEPROM Writes"));
   tagButton(chunked, F("Reset"), ACT_RESET_EEPROM);
+  chunked.print(F(" Stats since "));
   tagSpan(chunked, JSON_DAIKIN_EEPROM);
   tagDivClose(chunked);
   chunked.print(F("</form><form method=post>"));
-  tagLabelDiv(chunked, F("Write Packet"));
-  chunked.print(F("Type "
+  tagLabelDiv(chunked, F("Write Command"));
+  chunked.print(F("Packet Type "
                   "<select name="));
   chunked.print(POST_CMD_TYPE, HEX);
   chunked.print(F(">"));
@@ -312,7 +314,8 @@ void contentStatus(ChunkedPrint &chunked) {
   tagDivClose(chunked);
 #endif /* ENABLE_EXTRA_DIAG */
   tagLabelDiv(chunked, F("P1P2 Packets"));
-  tagButton(chunked, F("Reset Stats"), ACT_RESET_STATS);
+  tagButton(chunked, F("Reset"), ACT_RESET_STATS);
+  chunked.print(F(" Stats since "));
   tagSpan(chunked, JSON_P1P2_STATS);
   tagDivClose(chunked);
 #ifdef ENABLE_EXTRA_DIAG
@@ -327,7 +330,7 @@ void contentIp(ChunkedPrint &chunked) {
 
   tagLabelDiv(chunked, F("MAC Address"));
   for (byte i = 0; i < 6; i++) {
-    tagInputHex(chunked, POST_MAC + i, true, true, mac[i]);
+    tagInputHex(chunked, POST_MAC + i, true, true, data.mac[i]);
     if (i < 5) chunked.print(F(":"));
   }
   tagButton(chunked, F("Randomize"), ACT_MAC);
@@ -335,7 +338,7 @@ void contentIp(ChunkedPrint &chunked) {
 
 #ifdef ENABLE_DHCP
   tagLabelDiv(chunked, F("Auto IP"));
-  tagCheckbox(chunked, POST_SEND_ALL, localConfig.enableDhcp, true, false);
+  tagCheckbox(chunked, POST_SEND_ALL, data.config.enableDhcp, true, false);
   chunked.print(F(" DHCP"));
   tagDivClose(chunked);
 #endif /* ENABLE_DHCP */
@@ -345,15 +348,15 @@ void contentIp(ChunkedPrint &chunked) {
     switch (j) {
       case 0:
         tagLabelDiv(chunked, F("Static IP"));
-        tempIp = localConfig.ip;
+        tempIp = data.config.ip;
         break;
       case 1:
         tagLabelDiv(chunked, F("Submask"));
-        tempIp = localConfig.subnet;
+        tempIp = data.config.subnet;
         break;
       case 2:
         tagLabelDiv(chunked, F("Gateway"));
-        tempIp = localConfig.gateway;
+        tempIp = data.config.gateway;
         break;
       default:
         break;
@@ -363,7 +366,7 @@ void contentIp(ChunkedPrint &chunked) {
   }
 #ifdef ENABLE_DHCP
   tagLabelDiv(chunked, F("DNS Server"));
-  tagInputIp(chunked, POST_DNS, localConfig.dns);
+  tagInputIp(chunked, POST_DNS, data.config.dns);
   tagDivClose(chunked);
 #endif /* ENABLE_DHCP */
 }
@@ -371,32 +374,21 @@ void contentIp(ChunkedPrint &chunked) {
 //            TCP/UDP Settings
 void contentTcp(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Remote IP"));
-  tagInputIp(chunked, POST_REM_IP, localConfig.remoteIp);
+  tagInputIp(chunked, POST_REM_IP, data.config.remoteIp);
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Send and Receive UDP"));
   static const __FlashStringHelper *optionsList[] = {
     F("Only to/from Remote IP"),
     F("To/From Any IP (Broadcast)")
   };
-  tagSelect(chunked, POST_UDP_BROADCAST, optionsList, 2, localConfig.udpBroadcast);
+  tagSelect(chunked, POST_UDP_BROADCAST, optionsList, 2, data.config.udpBroadcast);
   tagDivClose(chunked);
-  uint16_t value;
-  for (byte i = 0; i < 2; i++) {
-    switch (i) {
-      case 0:
-        tagLabelDiv(chunked, F("UDP Port"));
-        value = localConfig.udpPort;
-        break;
-      case 1:
-        tagLabelDiv(chunked, F("WebUI Port"));
-        value = localConfig.webPort;
-        break;
-      default:
-        break;
-    }
-    tagInputNumber(chunked, POST_UDP + i, 1, 65535, value, F(""));
-    tagDivClose(chunked);
-  }
+  tagLabelDiv(chunked, F("UDP Port"));
+  tagInputNumber(chunked, POST_UDP, 1, 65535, data.config.udpPort, F(""));
+  tagDivClose(chunked);
+  tagLabelDiv(chunked, F("WebUI Port"));
+  tagInputNumber(chunked, POST_WEB, 1, 65535, data.config.webPort, F(""));
+  tagDivClose(chunked);
 }
 
 
@@ -408,16 +400,16 @@ void contentP1P2(ChunkedPrint &chunked) {
     F("Manual Connect"),
     F("Auto Connect")
   };
-  tagSelect(chunked, POST_CONTROL_MODE, optionsList, 3, localConfig.controllerMode);
+  tagSelect(chunked, POST_CONTROL_MODE, optionsList, 3, data.config.controllerMode);
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Connection Timeout"));
-  tagInputNumber(chunked, POST_TIMEOUT, F0THRESHOLD, 60, localConfig.connectTimeout, F("secs"));
+  tagInputNumber(chunked, POST_TIMEOUT, F0THRESHOLD, 60, data.config.connectTimeout, F("secs"));
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("EEPROM Write Quota"));
-  tagInputNumber(chunked, POST_QUOTA, 0, 100, localConfig.writeQuota, F("writes per day"));
+  tagInputNumber(chunked, POST_QUOTA, 0, 100, data.config.writeQuota, F("writes per day"));
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Target Temperature Hysteresis"));
-  tagInputNumber(chunked, POST_HYSTERESIS, 1, 5, localConfig.hysteresis, F("\xB0"
+  tagInputNumber(chunked, POST_HYSTERESIS, 0, 5, data.config.hysteresis, F("\xB0"
                                                                            "C"));
   tagDivClose(chunked);
 }
@@ -426,20 +418,21 @@ void contentP1P2(ChunkedPrint &chunked) {
 //            Packet Filter
 void contentFilter(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Send All Packet Types"));
-  tagCheckbox(chunked, POST_SEND_ALL, localConfig.sendAllPackets, true, false);
+  tagCheckbox(chunked, POST_SEND_ALL, data.config.sendAllPackets, true, false);
   chunked.print(F("Enable (use with caution!)"));
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Counters Packet"));
   chunked.print(F("Request Every "));
-  tagInputNumber(chunked, POST_COUNTER_PERIOD, 1, 60, localConfig.counterPeriod, F("mins"));
+  tagInputNumber(chunked, POST_COUNTER_PERIOD, 1, 60, data.config.counterPeriod, F("mins"));
   tagDivClose(chunked);
   tagRowPacket(chunked, PACKET_TYPE_COUNTER);
   tagLabelDiv(chunked, F("Data Packets"));
   static const __FlashStringHelper *optionsList[] = {
     F("Always Send (~770ms cycle)"),
-    F("Send If Payload Changed")
+    F("If Payload Changed or When Counters Requested"),
+    F("Only If Payload Changed")
   };
-  tagSelect(chunked, POST_SAVE_DATA_PACKETS, optionsList, 2, localConfig.saveDataPackets);
+  tagSelect(chunked, POST_DATA_PACKETS, optionsList, 3, data.config.sendDataPackets);
   tagDivClose(chunked);
   for (byte i = PACKET_TYPE_DATA[FIRST]; i <= PACKET_TYPE_DATA[LAST]; i++) {
     tagRowPacket(chunked, i);
@@ -454,8 +447,24 @@ void contentFilter(ChunkedPrint &chunked) {
   }
 }
 
+//            Tools
+void contentTools(ChunkedPrint &chunked) {
+  tagLabelDiv(chunked, 0);
+  tagButton(chunked, F("Load Default Settings"), ACT_DEFAULT);
+  chunked.print(F(" (static IP: "));
+  chunked.print(IPAddress(DEFAULT_CONFIG.ip));
+  chunked.print(F(")"));
+  tagDivClose(chunked);
+  tagLabelDiv(chunked, 0);
+  tagButton(chunked, F("Reboot"), ACT_REBOOT);
+  tagDivClose(chunked);
+}
+
+
 void contentWait(ChunkedPrint &chunked) {
+  tagLabelDiv(chunked, 0);
   chunked.print(F("Reloading. Please wait..."));
+  tagDivClose(chunked);
 }
 
 // Functions providing snippets of repetitive HTML code
@@ -550,11 +559,13 @@ void tagInputHex(ChunkedPrint &chunked, const byte name, const bool required, co
 }
 
 void tagLabelDiv(ChunkedPrint &chunked, const __FlashStringHelper *label) {
-  chunked.print(F("<div class=r>"
-                  "<label>"));
-  chunked.print(label);
-  chunked.print(F(":</label>"
-                  "<div>"));
+  chunked.print(F("<div class=r>"));
+  chunked.print(F("<label> "));
+  if (label) {
+    chunked.print(label);
+    chunked.print(F(":"));
+  }
+  chunked.print(F("</label><div>"));
 }
 
 void tagButton(ChunkedPrint &chunked, const __FlashStringHelper *flashString, byte value) {
@@ -564,7 +575,7 @@ void tagButton(ChunkedPrint &chunked, const __FlashStringHelper *flashString, by
   chunked.print(value);
   chunked.print(F(">"));
   chunked.print(flashString);
-  chunked.print(F("</button><br>"));
+  chunked.print(F("</button>"));
 }
 
 void tagDivClose(ChunkedPrint &chunked) {
@@ -601,6 +612,9 @@ void stringPageName(ChunkedPrint &chunked, byte item) {
       break;
     case PAGE_FILTER:
       chunked.print(F("Packet Filter"));
+      break;
+    case PAGE_TOOLS:
+      chunked.print(F("Tools"));
       break;
     default:
       break;
@@ -639,7 +653,7 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
     case JSON_UDP_STATS:
       {
         for (byte i = 0; i < UDP_LAST; i++) {
-          chunked.print(udpCount[i]);
+          chunked.print(data.udpCnt[i]);
           switch (i) {
             case UDP_SENT:
               chunked.print(F(" Sent to UDP"));
@@ -674,18 +688,18 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
       break;
     case JSON_DAIKIN_EEPROM:
       {
-        chunked.print(eepromCount.daikinWrites);
-        chunked.print(F(" Total (since "));
-        stringDate(chunked, eepromCount.eepromDate);
-        chunked.print(F(")<br>"));
-        chunked.print((uint16_t)(eepromCount.daikinWrites / (days(date) - days(eepromCount.eepromDate) + 1)));
+        stringDate(chunked, data.eepromDaikin.date);
+        chunked.print(F("<br>"));
+        chunked.print(data.eepromDaikin.total);
+        chunked.print(F(" Total Commands<br>"));
+        chunked.print((uint16_t)(data.eepromDaikin.total / (days(date) - days(data.eepromDaikin.date) + 1)));
         chunked.print(F(" Average per Day (should be bellow 19)<br>"));
-        chunked.print(eepromCount.yesterdayWrites);
+        chunked.print(data.eepromDaikin.yesterday);
         chunked.print(F(" Yesterday<br>"));
-        chunked.print(eepromCount.todayWrites);
-        chunked.print(F("/"));
-        chunked.print(localConfig.writeQuota);
-        chunked.print(F("Today (Total/Quota)"));
+        chunked.print(data.eepromDaikin.today);
+        chunked.print(F(" / "));
+        chunked.print(data.config.writeQuota);
+        chunked.print(F(" Today (total / quota)"));
       }
       break;
     case JSON_CONTROLLER:
@@ -716,7 +730,7 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
             break;
           case CONNECTING:
           case CONNECTED:
-            if (localConfig.controllerMode == CONTROL_MANUAL) {  // Disconnect button available only in manual connect mode (not in auto connect mode)
+            if (data.config.controllerMode == CONTROL_MANUAL) {  // Disconnect button available only in manual connect mode (not in auto connect mode)
               tagButton(chunked, F("Disconnect"), ACT_DISCONNECT);
             }
             break;
@@ -736,8 +750,10 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
       break;
     case JSON_P1P2_STATS:
       {
+        stringDate(chunked, data.statsDate);
+        chunked.print(F("<br>"));
         for (byte i = 0; i < P1P2_LAST; i++) {
-          chunked.print(p1p2Count[i]);
+          chunked.print(data.p1p2Cnt[i]);
           switch (i) {
             case P1P2_READ_OK:
               chunked.print(F(" Bus Read OK"));
@@ -749,7 +765,7 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
               chunked.print(F(" EEPROM Write Quota Reached"));
               break;
             case P1P2_WRITE_QUEUE:
-              chunked.print(F(" Write Queue Full"));
+              chunked.print(F(" Write Command Queue Full"));
               break;
             case P1P2_WRITE_INVALID:
               chunked.print(F(" Write Command Invalid"));

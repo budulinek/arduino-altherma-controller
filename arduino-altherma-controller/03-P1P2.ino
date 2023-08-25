@@ -34,7 +34,7 @@ void recvBus() {
     uint16_t nread = P1P2Serial.readpacket(RB, delta, EB, RB_SIZE, CRC_GEN, CRC_FEED);
     if (nread > RB_SIZE) {
       //  Received packet longer than RB_SIZE
-      p1p2Count[P1P2_LARGE]++;
+      data.p1p2Cnt[P1P2_LARGE]++;
       nread = RB_SIZE;
       readError = 0xFF;
     }
@@ -61,36 +61,39 @@ void processParseRead(uint16_t n, uint16_t delta) {
   if (CRC_GEN) n--;  // omit CRC
 
   // update counters and packet type status
-  p1p2Count[P1P2_READ_OK]++;
+  data.p1p2Cnt[P1P2_READ_OK]++;
   if (setPacketStatus(RB[2], PACKET_SEEN, true) == true) {
     updateEeprom();
   }
 
   // Send to UDP
-  if (localConfig.sendAllPackets || getPacketStatus(RB[2], PACKET_SENT) == true) {
+  if (data.config.sendAllPackets || getPacketStatus(RB[2], PACKET_SENT) == true) {
     if (changedPacket(RB, n) == true) {
       // Send packets according to settings
-      IPAddress remIp = localConfig.remoteIp;
-      if (localConfig.udpBroadcast) remIp = { 255, 255, 255, 255 };
-      Udp.beginPacket(remIp, localConfig.udpPort);
+      IPAddress remIp = data.config.remoteIp;
+      if (data.config.udpBroadcast) remIp = { 255, 255, 255, 255 };
+      Udp.beginPacket(remIp, data.config.udpPort);
       Udp.write(RB, n);
       Udp.endPacket();
 #ifdef ENABLE_EXTRA_DIAG
-      udpCount[UDP_SENT]++;
+      data.udpCnt[UDP_SENT]++;
 #endif /* ENABLE_EXTRA_DIAG */
     }
   }
   // Parse time and date
   if ((RB[0] == 0x00) && (RB[1] == 0x00) && (RB[2] == 0x12)) {
     if (date[1] == 23 && RB[5] == 0) {  // midnight
-      eepromCount.yesterdayWrites = eepromCount.todayWrites;
-      eepromCount.todayWrites = 0;
+      data.eepromDaikin.yesterday = data.eepromDaikin.today;
+      data.eepromDaikin.today = 0;
     }
     for (byte i = 0; i < 6; i++) {
       date[i] = RB[i + 4];
     }
-    if (eepromCount.eepromDate[5] == 0) {
-      memcpy(eepromCount.eepromDate, date, sizeof(eepromCount.eepromDate));
+    if (data.eepromDaikin.date[5] == 0) {
+      memcpy(data.eepromDaikin.date, date, sizeof(data.eepromDaikin.date));
+    }
+    if (data.statsDate[5] == 0) {
+      memcpy(data.statsDate, date, sizeof(data.statsDate));
     }
   }
   // Parse name
@@ -168,7 +171,7 @@ void processErrors(uint16_t nread) {
     }
   }
   for (byte i = 0; i < P1P2_LAST; i++) {
-    if (packetError[i] == true) p1p2Count[i]++;
+    if (packetError[i] == true) data.p1p2Cnt[i]++;
   }
 }
 
@@ -194,15 +197,17 @@ void processWrite(uint16_t n) {
   // Write command from queue
   if (cmdLen && RB[2] == cmdType) {  // second byte in queue is packet type, compare to received packet type
     if (2 + cmdLen <= n) {           // check if param size in queue is not larger than space available in packet
-      if (eepromCount.todayWrites <= localConfig.writeQuota) {
+      if (data.eepromDaikin.today < data.config.writeQuota) {
         for (byte i = 0; i < cmdLen; i++) {
           WB[i + 2] = cmdQueue[i + 1];  // skip the first byte in the queue (cmdLen)
         }
-        eepromCount.daikinWrites++;
-        eepromCount.todayWrites++;
+        data.eepromDaikin.total++;
+        data.eepromDaikin.today++;
+        // updateEeprom();  // is it really needed?
       } else {
-        p1p2Count[P1P2_WRITE_QUOTA]++;
+        data.p1p2Cnt[P1P2_WRITE_QUOTA]++;
       }
+      // memset(savedPackets, 0xFF, sizeof(savedPackets));  // reset saved packets
     } else {
       // TODO error
     }
@@ -262,7 +267,7 @@ void processWrite(uint16_t n) {
         break;
       case 0x31:                      // in: 15 byte; out: 15 byte; out pattern is copy of in pattern except for 2 bytes RB[7] RB[8]; function partly date/time, partly unknown
         controllerState = CONNECTED;  // handshake (exchange of packet types 0x30) was successful and the main controller proceeds to identify the auxiliary controller
-        connectionTimer.sleep(localConfig.connectTimeout * 1000UL);
+        connectionTimer.sleep(data.config.connectTimeout * 1000UL);
         // RB[7] RB[8] seem to identify the auxiliary controller type;
         // Do pretend to be a LAN adapter (even though this may trigger "data not in sync" upon restart?)
         // If we don't set address, installer mode in main thermostat may become inaccessible
@@ -294,7 +299,7 @@ void processWrite(uint16_t n) {
     }
   }
   P1P2Serial.writepacket(WB, n, d, CRC_GEN, CRC_FEED);
-  p1p2Count[P1P2_WRITE_OK]++;
+  data.p1p2Cnt[P1P2_WRITE_OK]++;
 }
 
 bool changedPacket(byte packet[], const byte packetLen) {
@@ -312,7 +317,7 @@ bool changedPacket(byte packet[], const byte packetLen) {
       bytestart += PACKET_PAYLOAD_SIZE[i][j];
     }
   }
-  if (packet[2] < PACKET_TYPE_DATA[FIRST] || packet[2] > PACKET_TYPE_DATA[LAST] || localConfig.saveDataPackets == false) {
+  if (packet[2] < PACKET_TYPE_DATA[FIRST] || packet[2] > PACKET_TYPE_DATA[LAST] || data.config.sendDataPackets == DATA_ALWAYS) {
     newPacket = true;
   } else if (packetLen - 3 > PACKET_PAYLOAD_SIZE[pts][pti]) {
     // Warning: packet longer than expected
@@ -351,7 +356,7 @@ bool changed36Param(byte cmd[]) {
     int16_t paramVal = (cmd[4] << 8) | cmd[3];
     int16_t storedVal = (saved36Params[paramNum][1] << 8) | saved36Params[paramNum][0];
     // this byte or at least some bits have been seen and saved before.
-    if (abs(int16_t(storedVal - paramVal)) >= int16_t(localConfig.hysteresis * 10)) {
+    if (abs(int16_t(storedVal - paramVal)) >= int16_t(data.config.hysteresis * 10)) {
       newVal = true;
       saved36Params[paramNum][0] = cmd[3];
       saved36Params[paramNum][1] = cmd[4];
