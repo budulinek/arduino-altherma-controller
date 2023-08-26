@@ -693,7 +693,7 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
         chunked.print(data.eepromDaikin.total);
         chunked.print(F(" Total Commands<br>"));
         chunked.print((uint16_t)(data.eepromDaikin.total / (days(date) - days(data.eepromDaikin.date) + 1)));
-        chunked.print(F(" Average per Day (should be bellow 19)<br>"));
+        chunked.print(F(" Daily Average (should be bellow 19)<br>"));
         chunked.print(data.eepromDaikin.yesterday);
         chunked.print(F(" Yesterday<br>"));
         chunked.print(data.eepromDaikin.today);

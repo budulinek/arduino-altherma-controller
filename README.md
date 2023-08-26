@@ -115,7 +115,7 @@ This controller has a built-in webserver which allows you to configure the contr
 **Daikin EEPROM Writes**. Every time you send **Write Command** through the web interface or a command via UDP, settings of the main Daikin controller (= controller on your heat pump) change and new values are written to its internal EEPROM. **<ins>Your main Daikin controller's EEPROM has a limited number of writes, so keep an eye on this counter in order to prevent EEPROM wear! It is adviced to do max 7000 writes per year (19 writes/day on average)</ins>**.
 * **Stats since ...**. Date and time since when **Daikin EEPROM Writes** are recorded. If you significantly change the date on the heat pump, reset the stats (so that **Average per Day** is calculated properly).
 * **Total Commands**. Total number of writes made by this Arduino controller since the date and time recorded in **Stats since ...**.
-* **Average per Day**. Daily average EEPROM writes, should be bellow 19. Calculated from internal date of the heat pump, so if you change the date in heat pump settings, it is recommended to reset the Daikin EEPROM Writes counter.
+* **Daily Average**. Daily average EEPROM writes, should be bellow 19. Calculated from internal date of the heat pump, so if you change the date in heat pump settings, it is recommended to reset the Daikin EEPROM Writes counter.
 * **Yesterday**. Number of writes made yesterday, updated at midnight. Should not significantly exceed average writes per day.
 * **Today**. Number of writes made today / out of daily **EEPROM Write Quota**. If you reach the quota and you really need more, you can temporarily (!) increase it in the **P1P2 Settings**
 
