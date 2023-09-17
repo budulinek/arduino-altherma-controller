@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<VirtualOut Title="Daikin Altherma LT" Comment="" Address="/dev/udp/192.168.1.254/503" CmdInit="" CloseAfterSend="false" CmdSep=";">
+<VirtualOut Title="Daikin Altherma LT" Comment="" Address="/dev/udp/192.168.1.254/10000" CmdInit="" CloseAfterSend="false" CmdSep=";">
 	<Info templateType="3" minVersion="14000328"/>
 	<VirtualOutCmd Title="DHW_Boost_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x48\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x48\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="false" Repeat="0" RepeatRate="0"/>
 	<VirtualOutCmd Title="Quiet_Mode_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x03\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x03\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="false" Repeat="0" RepeatRate="0"/>

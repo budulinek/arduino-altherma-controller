@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<VirtualInUdp Title="Daikin Altherma" Comment="" Address="192.168.1.254" Port="503">
+<VirtualInUdp Title="Daikin Altherma" Comment="" Address="192.168.1.254" Port="10000">
 	<Info templateType="1" minVersion="14000328"/>
 	<VirtualInUdpCmd Title="Temperature_Leaving_Water" Comment="" Address="" Check="\x40\x00\x11\2\1" Signed="true" Analog="true" SourceValLow="0" DestValLow="0" SourceValHigh="256" DestValHigh="1" DefVal="0" MinVal="-10000" MaxVal="10000"/>
 	<VirtualInUdpCmd Title="Temperature_DHW_Tank" Comment="" Address="" Check="\x40\x00\x11\s2\2\1" Signed="true" Analog="true" SourceValLow="0" DestValLow="0" SourceValHigh="256" DestValHigh="1" DefVal="0" MinVal="-10000" MaxVal="10000"/>
