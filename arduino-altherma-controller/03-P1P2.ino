@@ -75,9 +75,9 @@ void processParseRead(uint16_t n, uint16_t delta) {
       Udp.beginPacket(remIp, data.config.udpPort);
       Udp.write(RB, n);
       Udp.endPacket();
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
       data.udpCnt[UDP_SENT]++;
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
     }
   }
   // Parse time and date
@@ -105,7 +105,7 @@ void processParseRead(uint16_t n, uint16_t delta) {
     if (daikinIndoor[0] == '\0') daikinIndoor[0] = '-';  // if response from heat pup is empty, write '-' in order to prevent repeated requests from us
   }
 
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
   if ((RB[0] == 0x40) && (RB[1] == 0x00) && (RB[2] == PACKET_TYPE_OUTDOOR_NAME)) {
     for (byte i = 0; i < NAME_SIZE - 1; i++) {
       if (RB[i + 4] == 0) break;
@@ -113,7 +113,7 @@ void processParseRead(uint16_t n, uint16_t delta) {
     }
     if (daikinOutdoor[0] == '\0') daikinOutdoor[0] = '-';  // if response from heat pup is empty, write '-' in order to prevent repeated requests from us
   }
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
 
   // check for other auxiliary controllers and get controller ID
   if (((RB[1] & 0xFE) == 0xF0) && ((RB[2] & PACKET_TYPE_HANDSHAKE) == PACKET_TYPE_HANDSHAKE)) {

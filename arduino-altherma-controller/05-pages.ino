@@ -231,11 +231,11 @@ void contentInfo(ChunkedPrint &chunked) {
   }
   tagDivClose(chunked);
 
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
   tagLabelDiv(chunked, F("Ethernet Sockets"));
   chunked.print(maxSockNum);
   tagDivClose(chunked);
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
 
   tagLabelDiv(chunked, F("MAC Address"));
   for (byte i = 0; i < 6; i++) {
@@ -269,11 +269,11 @@ void contentStatus(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Daikin Indoor Unit"));
   tagSpan(chunked, JSON_DAIKIN_INDOOR);
   tagDivClose(chunked);
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
   tagLabelDiv(chunked, F("Daikin Outdoor Unit"));
   tagSpan(chunked, JSON_DAIKIN_OUTDOOR);
   tagDivClose(chunked);
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
   tagLabelDiv(chunked, F("Date"));
   tagSpan(chunked, JSON_DATE);
   tagDivClose(chunked);
@@ -308,21 +308,21 @@ void contentStatus(ChunkedPrint &chunked) {
   tagSpan(chunked, JSON_WRITE_P1P2);
   tagDivClose(chunked);
   chunked.print(F("</form><form method=post>"));
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
   tagLabelDiv(chunked, F("Run Time"));
   tagSpan(chunked, JSON_RUNTIME);
   tagDivClose(chunked);
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
   tagLabelDiv(chunked, F("P1P2 Packets"));
   tagButton(chunked, F("Reset"), ACT_RESET_STATS);
   chunked.print(F(" Stats since "));
   tagSpan(chunked, JSON_P1P2_STATS);
   tagDivClose(chunked);
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
   tagLabelDiv(chunked, F("UDP Messages"));
   tagSpan(chunked, JSON_UDP_STATS);
   tagDivClose(chunked);
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
 }
 
 //            IP Settings
@@ -403,7 +403,7 @@ void contentP1P2(ChunkedPrint &chunked) {
   tagSelect(chunked, POST_CONTROL_MODE, optionsList, 3, data.config.controllerMode);
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Connection Timeout"));
-  tagInputNumber(chunked, POST_TIMEOUT, F0THRESHOLD, 60, data.config.connectTimeout, F("secs"));
+  tagInputNumber(chunked, POST_TIMEOUT, F0THRESHOLD, 60, data.config.connectTimeout, F("s"));
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("EEPROM Write Quota"));
   tagInputNumber(chunked, POST_QUOTA, 0, 100, data.config.writeQuota, F("writes per day"));
@@ -639,7 +639,7 @@ void stringDate(ChunkedPrint &chunked, byte myDate[]) {
 
 void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
   switch (JSONKEY) {
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
     case JSON_RUNTIME:
       chunked.print(seconds / (3600UL * 24L));
       chunked.print(F(" days, "));
@@ -668,19 +668,19 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
         }
       }
       break;
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
     case JSON_DAIKIN_INDOOR:
       {
         chunked.print(daikinIndoor);
       }
       break;
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
     case JSON_DAIKIN_OUTDOOR:
       {
         chunked.print(daikinOutdoor);
       }
       break;
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
     case JSON_DATE:
       {
         stringDate(chunked, date);
@@ -692,7 +692,11 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
         chunked.print(F("<br>"));
         chunked.print(data.eepromDaikin.total);
         chunked.print(F(" Total Commands<br>"));
-        chunked.print((uint16_t)(data.eepromDaikin.total / (days(date) - days(data.eepromDaikin.date) + 1)));
+        if (date[5] != 0) {  // day can not be zero
+          chunked.print((uint16_t)(data.eepromDaikin.total / (days(date) - days(data.eepromDaikin.date) + 1)));
+        } else {
+          chunked.print(F("-"));
+        }
         chunked.print(F(" Daily Average (should be bellow 19)<br>"));
         chunked.print(data.eepromDaikin.yesterday);
         chunked.print(F(" Yesterday<br>"));

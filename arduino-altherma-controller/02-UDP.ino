@@ -34,9 +34,9 @@ void recvUdp() {
     }
     Udp.read(command, sizeof(command));
     checkCommand(command, byte(udpLen));
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
     data.udpCnt[UDP_RECEIVED]++;
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
   }
 }
 

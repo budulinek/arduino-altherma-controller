@@ -73,16 +73,12 @@ void (*resetFunc)(void) = 0;  //declare reset function at address 0
 #ifdef ENABLE_DHCP
 void maintainDhcp() {
   if (data.config.enableDhcp && dhcpSuccess == true) {  // only call maintain if initial DHCP request by startEthernet was successfull
-    byte maintainResult = Ethernet.maintain();
-    if (maintainResult == 1 || maintainResult == 3) {  // renew failed or rebind failed
-      dhcpSuccess = false;
-      startEthernet();  // another DHCP request, fallback to static IP
-    }
+    Ethernet.maintain();
   }
 }
 #endif /* ENABLE_DHCP */
 
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
 void maintainUptime() {
   uint32_t milliseconds = millis();
   if (last_milliseconds > milliseconds) {
@@ -96,7 +92,7 @@ void maintainUptime() {
   //We add the "remaining_seconds", so that we can continue measuring the time passed from the last boot of the device.
   seconds = (milliseconds / 1000) + remaining_seconds;
 }
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
 
 const uint32_t ROLLOVER = 0xFFFFFF00;
 bool rollover() {
@@ -106,7 +102,7 @@ bool rollover() {
       return true;
     }
   }
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
   for (byte i = 0; i < UDP_LAST; i++) {
     if (data.udpCnt[i] > ROLLOVER) {
       return true;
@@ -115,7 +111,7 @@ bool rollover() {
   if (seconds > ROLLOVER) {
     return true;
   }
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
   return false;
 }
 
@@ -123,10 +119,10 @@ bool rollover() {
 void resetStats() {
   memset(data.statsDate, 0, sizeof(data.statsDate));
   memset(data.p1p2Cnt, 0, sizeof(data.p1p2Cnt));
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
   memset(data.udpCnt, 0, sizeof(data.udpCnt));
   remaining_seconds = -(millis() / 1000);
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
 }
 
 void resetEepromStats() {
@@ -291,14 +287,14 @@ void manageController() {
         cmdQueue.push(0);
         indoorInQueue = true;
       }
-#ifdef ENABLE_EXTRA_DIAG
+#ifdef ENABLE_EXTENDED_WEBUI
       if (daikinOutdoor[0] == '\0' && outdoorInQueue == false) {
         cmdQueue.push(2);
         cmdQueue.push(PACKET_TYPE_OUTDOOR_NAME);
         cmdQueue.push(0);
         outdoorInQueue = true;
       }
-#endif /* ENABLE_EXTRA_DIAG */
+#endif /* ENABLE_EXTENDED_WEBUI */
       break;
     default:
       break;

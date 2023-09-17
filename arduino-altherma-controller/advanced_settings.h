@@ -1,5 +1,51 @@
-/*  Advanced settings, extra functions and default config forDaikin P1P2 ⇔ UDP Gateway
+/*  Advanced settings, extra functions and default config 
 */
+
+/****** FUNCTIONALITY ******/
+
+// #define ENABLE_EXTENDED_WEBUI  // Enable extended Web UI (additional items and settings), consumes FLASH memory
+// uncomment ENABLE_EXTENDED_WEBUI if you have a board with large FLASH memory (Arduino Mega)
+
+// #define ENABLE_DHCP  // Enable DHCP (Auto IP settings), consumes a lot of FLASH memory
+
+
+/****** DEFAULT CONFIGURATION ******/
+/*
+  Arduino loads user settings stored in EEPROM, even if you flash new program to it.
+  
+  Arduino loads factory defaults if:
+  1) User clicks "Load default settings" in WebUI (factory reset configuration, keeps MAC)
+  2) VERSION_MAJOR changes (factory reset configuration AND generates new MAC)
+*/
+
+/****** IP Settings ******/
+const bool DEFAULT_AUTO_IP = false;  // Default Auto IP setting (only used if ENABLE_DHCP)
+#define DEFAULT_STATIC_IP \
+  { 192, 168, 1, 254 }  // Default Static IP
+#define DEFAULT_SUBMASK \
+  { 255, 255, 255, 0 }  // Default Submask
+#define DEFAULT_GATEWAY \
+  { 192, 168, 1, 1 }  // Default Gateway
+#define DEFAULT_DNS \
+  { 192, 168, 1, 1 }  // Default DNS Server (only used if ENABLE_DHCP)
+
+/****** TCP/UDP Settings ******/
+#define DEFAULT_REMOTE_IP \
+  { 192, 168, 1, 22 }                     // Default Remote IP (only used if ENABLE_EXTENDED_WEBUI)
+const bool DEFAULT_BROADCAST = true;      // Default UDP Broadcast setting (Send and Receive UDP)
+const uint16_t DEFAULT_UDP_PORT = 10000;  // Default UDP Port
+const uint16_t DEFAULT_WEB_PORT = 80;     // Default WebUI Port
+
+/****** P1P2 Settings ******/
+const byte DEFAULT_COTROLLER_MODE = CONTROL_MANUAL;  // Default Controller Mode (CONTROL_DISABLED, CONTROL_MANUAL or CONTROL_AUTO)
+const byte DEFAULT_EEPROM_QUOTA = 24;                // Default EEPROM Write Quota
+const byte DEFAUT_TEMPERATURE_HYSTERESIS = 1;        // Default Target Temperature Hysteresis
+
+/****** Packet Filter ******/
+const bool DEFAULT_SEND_ALL = false;                             // Default Send All Packet Types
+const byte DEFAULT_COUNTER_PERIOD = 10;                          // Default Counters Packet Request Period
+const byte DEFAULT_DATA_PACKETS_MODE = DATA_CHANGE_AND_REQUEST;  // Default Data Packets Mode (DATA_ALWAYS, DATA_CHANGE_AND_REQUEST or DATA_ONLY_CHANGE)
+
 
 /****** ADVANCED SETTINGS ******/
 
@@ -51,37 +97,3 @@ const uint16_t FETCH_INTERVAL = 2000;            // Fetch API interval (ms) for 
 const byte DATA_START = 96;      // Start address where config and counters are saved in EEPROM
 const byte EEPROM_INTERVAL = 6;  // Interval (hours) for saving Modbus statistics to EEPROM (in order to minimize writes to EEPROM)
 
-/****** EXTRA FUNCTIONS ******/
-
-// these do not fit into the limited flash memory of Arduino Uno/Nano, uncomment if you have a board with more memory
-// #define ENABLE_DHCP       // Enable DHCP (Auto IP settings)
-// #define ENABLE_EXTRA_DIAG // Enable outdoor unit name, runtime counter and UDP statistics.
-
-/****** DEFAULT FACTORY SETTINGS ******/
-
-/*
-  Please note that after boot, Arduino loads user settings stored in EEPROM, even if you flash new program to it!
-  Arduino loads factory defaults if:
-  1) User clicks "Load default settings" in WebUI (factory reset configuration, keeps MAC)
-  2) VERSION_MAJOR changes (factory reset configuration AND generates new MAC)
-*/
-const config_t DEFAULT_CONFIG = {
-  { 192, 168, 1, 254 },     // ip
-  { 255, 255, 255, 0 },     // subnet
-  { 192, 168, 1, 1 },       // gateway
-  { 192, 168, 1, 1 },       // Dns (only used if ENABLE_DHCP)
-  false,                    // enableDhcp (only used if ENABLE_DHCP)
-  { 192, 168, 1, 22 },      // remoteIp
-  true,                     // udpBroadcast
-  503,                      // udpPort
-  80,                       // webPort
-  CONTROL_MANUAL,           // controllerMode
-  (F0THRESHOLD * 2),        // connectTimeout
-  false,                    // notSupported
-  1,                        // hysteresis
-  24,                       // writeQuota
-  false,                    // sendAllPackets
-  10,                       // counterPeriod
-  DATA_CHANGE_AND_REQUEST,  // sendDataPackets
-  {}                        // packetStatus
-};
