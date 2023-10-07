@@ -161,7 +161,7 @@ void manageSockets() {
   byte webListening = MAX_SOCK_NUM;
   byte dataAvailable = MAX_SOCK_NUM;
   byte socketsAvailable = 0;
-  // SPI.beginTransaction(SPI_ETHERNET_SETTINGS);								// begin SPI transaction
+  SPI.beginTransaction(SPI_ETHERNET_SETTINGS);  // begin SPI transaction
   // look at all the hardware sockets, record and take action based on current states
   for (byte s = 0; s < maxSockNum; s++) {            // for each hardware socket ...
     byte status = W5100.readSnSR(s);                 //  get socket status...
@@ -230,7 +230,7 @@ void manageSockets() {
     disconSocket(oldest);
   }
 
-  // SPI.endTransaction();	// Serves to o release the bus for other devices to access it. Since the ethernet chip is the only device
+  SPI.endTransaction();  // Serves to o release the bus for other devices to access it. Since the ethernet chip is the only device
   // we do not need SPI.beginTransaction(SPI_ETHERNET_SETTINGS) or SPI.endTransaction()
 }
 
