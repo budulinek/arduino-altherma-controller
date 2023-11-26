@@ -37,9 +37,9 @@ const uint16_t DEFAULT_UDP_PORT = 10000;  // Default UDP Port
 const uint16_t DEFAULT_WEB_PORT = 80;     // Default WebUI Port
 
 /****** P1P2 Settings ******/
-const byte DEFAULT_COTROLLER_MODE = CONTROL_MANUAL;  // Default Controller Mode (CONTROL_DISABLED, CONTROL_MANUAL or CONTROL_AUTO)
+const byte DEFAULT_COTROLLER_MODE = CONTROL_MANUAL;  // Default Controller Mode (CONTROL_MANUAL or CONTROL_AUTO)
 const byte DEFAULT_EEPROM_QUOTA = 24;                // Default EEPROM Write Quota
-const byte DEFAUT_TEMPERATURE_HYSTERESIS = 1;        // Default Target Temperature Hysteresis
+const byte DEFAUT_TEMPERATURE_HYSTERESIS = 10;       // Default Target Temperature Hysteresis in 1/10 °C
 
 /****** Packet Filter ******/
 const bool DEFAULT_SEND_ALL = false;                             // Default Send All Packet Types
@@ -96,4 +96,3 @@ const uint16_t FETCH_INTERVAL = 2000;            // Fetch API interval (ms) for 
 
 const byte DATA_START = 96;      // Start address where config and counters are saved in EEPROM
 const byte EEPROM_INTERVAL = 6;  // Interval (hours) for saving Modbus statistics to EEPROM (in order to minimize writes to EEPROM)
-

@@ -1,28 +1,10 @@
-/* *******************************************************************
-   UDP functions
-
-   recvUdp()
-   - receives P1P2 command via UDP
-   - calls checkCommand
-
-   checkCommand()
-   - checks P1P2 command
-   - checks availability of queue
-   - stores commands into queue or returns an error
-
-   deleteCmd()
-   - deletes command from queue
-
-   clearQueue()
-   - clears queue and corresponding counters
-
-   getPacketStatus(), setPacketStatus()
-   - read from and write to bool array
-
-   ***************************************************************** */
-
 byte masks[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
 
+/**************************************************************************/
+/*!
+  @brief Receives P1P2 command via UDP, calls @ref checkCommand() function.
+*/
+/**************************************************************************/
 void recvUdp() {
   uint16_t udpLen = Udp.parsePacket();
   if (udpLen) {
@@ -40,6 +22,14 @@ void recvUdp() {
   }
 }
 
+/**************************************************************************/
+/*!
+  @brief Checks P1P2 command, checks availability of queue, stores commands
+  into queue or an error.
+  @param command Command received via UDP or web UI.
+  @param cmdLen Command length.
+*/
+/**************************************************************************/
 void checkCommand(byte command[], byte cmdLen) {
   if (cmdQueue.available() > cmdLen) {                                                               // check available space in queue
     if (PACKET_PARAM_VAL_SIZE[command[0] - PACKET_TYPE_CONTROL[FIRST]] != 0                          // check if param size is not zero (0 = write command not supported (yet))
@@ -60,18 +50,43 @@ void checkCommand(byte command[], byte cmdLen) {
   }
 }
 
-void deleteCmd()  // delete command from queue
-{
+/**************************************************************************/
+/*!
+  @brief Deletes command from queue.
+*/
+/**************************************************************************/
+void deleteCmd() {
   byte cmdLen = cmdQueue.first();
   for (byte i = 0; i <= cmdLen; i++) {
     cmdQueue.shift();
   }
 }
 
+/**************************************************************************/
+/*!
+  @brief Checks whether the packet type has specific status.
+  @param packetType Packet type.
+  @param status Status we are inquiring
+      - @c PACKET_SEEN Packets of this type have already been detected on the bus
+      - @c PACKET_SENT Packets of this type will be sent to UDP
+  @return True if the packet type has specific status
+*/
+/**************************************************************************/
 bool getPacketStatus(const byte packetType, const byte status) {
   return (data.config.packetStatus[status][packetType / 8] & masks[packetType & 7]) > 0;
 }
 
+/**************************************************************************/
+/*!
+  @brief Sets status for the packet type.
+  @param packetType Packet type.
+  @param status Status we are setting
+      - @c PACKET_SEEN Packets of this type have already been detected on the bus
+      - @c PACKET_SENT Packets of this type will be sent to UDP
+  @param value True or false
+  @return True if value changed
+*/
+/**************************************************************************/
 bool setPacketStatus(const byte packetType, byte status, const bool value) {
   if (getPacketStatus(packetType, status) == value) return false;
   if (value == 0) {
@@ -79,5 +94,5 @@ bool setPacketStatus(const byte packetType, byte status, const bool value) {
   } else {
     data.config.packetStatus[status][packetType / 8] |= masks[packetType & 7];
   }
-  return true;  // return true if value changed
+  return true;
 }

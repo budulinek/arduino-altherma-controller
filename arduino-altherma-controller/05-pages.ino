@@ -1,46 +1,19 @@
-/* *******************************************************************
-   Pages for Webserver
-
-   sendPage()
-   - sends the requested page (incl. 404 error and JSON document)
-   - displays main page, renders title and left menu using <div> 
-   - calls content functions depending on the number (i.e. URL) of the requested web page
-   - also displays buttons for some of the pages
-   - in order to save flash memory, some HTML closing tags are omitted, new lines in HTML code are also omitted
-
-   contentInfo(), contentStatus(), contentIp(), contentTcp(), contentP1P2(), contentTools()
-   - render the content of the requested page
-
-   contentWait()
-   - renders the "please wait" message instead of the content, will be forwarded to home page after 5 seconds
-
-   tagInputNumber(), tagLabelDiv(), tagButton(), tagDivClose(), tagSpan()
-   - render snippets of repetitive HTML code for <input>, <label>, <div>, <button> and <span> tags
-
-   stringPageName(), stringStats()
-   - renders repetitive strings for menus, error counters
-
-   jsonVal()
-   - provide JSON value to a corresponding JSON key
-
-   ***************************************************************** */
-
 const byte WEB_OUT_BUFFER_SIZE = 64;  // size of web server write buffer (used by StreamLib)
 
+/**************************************************************************/
+/*!
+  @brief Sends the requested page (incl. 404 error and JSON document),
+  displays main page, renders title and left menu using, calls content functions
+  depending on the number (i.e. URL) of the requested web page.
+  In order to save flash memory, some HTML closing tags are omitted,
+  new lines in HTML code are also omitted.
+  @param client Ethernet TCP client
+  @param reqPage Requested page number
+*/
+/**************************************************************************/
 void sendPage(EthernetClient &client, byte reqPage) {
   char webOutBuffer[WEB_OUT_BUFFER_SIZE];
   ChunkedPrint chunked(client, webOutBuffer, sizeof(webOutBuffer));  // the StreamLib object to replace client print
-  /*
-
-use HTTP/1.0 because 
-- HOSTS: isn't necessary as the Arduino will only host one server.
-- in HTTP/1.1 HOSTS: is mandatory (and necessary if you HOST more than one site on one server) and the server should answer a request with "400 Bad Request" if it is missing
-- we don't need to send a Content-Length in HTTP/1.0
-
-An advantage of HTTP 1.1 is
-- you could keep the connection alive
- 
- */
   if (reqPage == PAGE_ERROR) {
     chunked.print(F("HTTP/1.1 404 Not Found\r\n"
                     "\r\n"
@@ -48,7 +21,7 @@ An advantage of HTTP 1.1 is
     chunked.end();
     return;
   } else if (reqPage == PAGE_DATA) {
-    chunked.print(F("HTTP/1.1 200\r\n"
+    chunked.print(F("HTTP/1.1 200\r\n"  // An advantage of HTTP 1.1 is that you can keep the connection alive
                     "Content-Type: application/json\r\n"
                     "Transfer-Encoding: chunked\r\n"
                     "\r\n"));
@@ -161,7 +134,6 @@ An advantage of HTTP 1.1 is
                   "<form method=post>"));
 
   //   PLACE FUNCTIONS PROVIDING CONTENT HERE
-
   switch (reqPage) {
     case PAGE_INFO:
       contentInfo(chunked);
@@ -190,7 +162,6 @@ An advantage of HTTP 1.1 is
     default:
       break;
   }
-
   if (reqPage == PAGE_IP || reqPage == PAGE_TCP || reqPage == PAGE_P1P2 || reqPage == PAGE_FILTER) {
     chunked.print(F("<p><div class=r><label><input type=submit value='Save & Apply'></label><input type=reset value=Cancel></div>"));
   }
@@ -200,7 +171,13 @@ An advantage of HTTP 1.1 is
 }
 
 
-//        System Info
+/**************************************************************************/
+/*!
+  @brief System Info
+
+  @param chunked Chunked buffer
+*/
+/**************************************************************************/
 void contentInfo(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("SW Version"));
   chunked.print(VERSION[0]);
@@ -261,11 +238,14 @@ void contentInfo(ChunkedPrint &chunked) {
   tagDivClose(chunked);
 }
 
-//        P1P2 Status
+/**************************************************************************/
+/*!
+  @brief P1P2 Status
+
+  @param chunked Chunked buffer
+*/
+/**************************************************************************/
 void contentStatus(ChunkedPrint &chunked) {
-  tagLabelDiv(chunked, F("Controller"));
-  tagSpan(chunked, JSON_CONTROLLER);
-  tagDivClose(chunked);
   tagLabelDiv(chunked, F("Daikin Indoor Unit"));
   tagSpan(chunked, JSON_DAIKIN_INDOOR);
   tagDivClose(chunked);
@@ -274,11 +254,14 @@ void contentStatus(ChunkedPrint &chunked) {
   tagSpan(chunked, JSON_DAIKIN_OUTDOOR);
   tagDivClose(chunked);
 #endif /* ENABLE_EXTENDED_WEBUI */
+  tagLabelDiv(chunked, F("External Controllers"));
+  tagSpan(chunked, JSON_CONTROLLER);
+  tagDivClose(chunked);
   tagLabelDiv(chunked, F("Date"));
   tagSpan(chunked, JSON_DATE);
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Daikin EEPROM Writes"));
-  tagButton(chunked, F("Reset"), ACT_RESET_EEPROM);
+  tagButton(chunked, F("Reset"), ACT_RESET_EEPROM, true);
   chunked.print(F(" Stats since "));
   tagSpan(chunked, JSON_DAIKIN_EEPROM);
   tagDivClose(chunked);
@@ -314,7 +297,7 @@ void contentStatus(ChunkedPrint &chunked) {
   tagDivClose(chunked);
 #endif /* ENABLE_EXTENDED_WEBUI */
   tagLabelDiv(chunked, F("P1P2 Packets"));
-  tagButton(chunked, F("Reset"), ACT_RESET_STATS);
+  tagButton(chunked, F("Reset"), ACT_RESET_STATS, true);
   chunked.print(F(" Stats since "));
   tagSpan(chunked, JSON_P1P2_STATS);
   tagDivClose(chunked);
@@ -325,7 +308,13 @@ void contentStatus(ChunkedPrint &chunked) {
 #endif /* ENABLE_EXTENDED_WEBUI */
 }
 
-//            IP Settings
+/**************************************************************************/
+/*!
+  @brief IP Settings
+
+  @param chunked Chunked buffer
+*/
+/**************************************************************************/
 void contentIp(ChunkedPrint &chunked) {
 
   tagLabelDiv(chunked, F("MAC Address"));
@@ -333,7 +322,7 @@ void contentIp(ChunkedPrint &chunked) {
     tagInputHex(chunked, POST_MAC + i, true, true, data.mac[i]);
     if (i < 5) chunked.print(F(":"));
   }
-  tagButton(chunked, F("Randomize"), ACT_MAC);
+  tagButton(chunked, F("Randomize"), ACT_MAC, true);
   tagDivClose(chunked);
 
 #ifdef ENABLE_DHCP
@@ -371,7 +360,13 @@ void contentIp(ChunkedPrint &chunked) {
 #endif /* ENABLE_DHCP */
 }
 
-//            TCP/UDP Settings
+/**************************************************************************/
+/*!
+  @brief TCP/UDP Settings
+
+  @param chunked Chunked buffer
+*/
+/**************************************************************************/
 void contentTcp(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Remote IP"));
   tagInputIp(chunked, POST_REM_IP, data.config.remoteIp);
@@ -391,31 +386,40 @@ void contentTcp(ChunkedPrint &chunked) {
   tagDivClose(chunked);
 }
 
+/**************************************************************************/
+/*!
+  @brief P1P2 Settings
 
-//            P1P2 Settings
+  @param chunked Chunked buffer
+*/
+/**************************************************************************/
 void contentP1P2(ChunkedPrint &chunked) {
-  tagLabelDiv(chunked, F("Controller (Write to P1P2)"));
+  tagLabelDiv(chunked, F("Enable Write to P1P2"));
   static const __FlashStringHelper *optionsList[] = {
-    F("Disabled"),
-    F("Manual Connect"),
-    F("Auto Connect")
+    F("Manually"),
+    F("Automatically")
   };
-  tagSelect(chunked, POST_CONTROL_MODE, optionsList, 3, data.config.controllerMode);
+  tagSelect(chunked, POST_CONTROL_MODE, optionsList, 2, data.config.controllerMode);
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Connection Timeout"));
   tagInputNumber(chunked, POST_TIMEOUT, F0THRESHOLD, 60, data.config.connectTimeout, F("s"));
   tagDivClose(chunked);
-  tagLabelDiv(chunked, F("EEPROM Write Quota"));
+  tagLabelDiv(chunked, F("Daikin EEPROM Write Quota"));
   tagInputNumber(chunked, POST_QUOTA, 0, 100, data.config.writeQuota, F("writes per day"));
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Target Temperature Hysteresis"));
-  tagInputNumber(chunked, POST_HYSTERESIS, 0, 5, data.config.hysteresis, F("\xB0"
-                                                                           "C"));
+  tagInputNumber(chunked, POST_HYSTERESIS, 0, 100, data.config.hysteresis, F("&#8530;\xB0"
+                                                                             "C"));
   tagDivClose(chunked);
 }
 
+/**************************************************************************/
+/*!
+  @brief Packet Filter
 
-//            Packet Filter
+  @param chunked Chunked buffer
+*/
+/**************************************************************************/
 void contentFilter(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Send All Packet Types"));
   tagCheckbox(chunked, POST_SEND_ALL, data.config.sendAllPackets, true, false);
@@ -447,28 +451,47 @@ void contentFilter(ChunkedPrint &chunked) {
   }
 }
 
-//            Tools
+/**************************************************************************/
+/*!
+  @brief Tools
+
+  @param chunked Chunked buffer
+*/
+/**************************************************************************/
 void contentTools(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, 0);
-  tagButton(chunked, F("Load Default Settings"), ACT_DEFAULT);
+  tagButton(chunked, F("Load Default Settings"), ACT_DEFAULT, true);
   chunked.print(F(" (static IP: "));
   chunked.print(IPAddress(DEFAULT_CONFIG.ip));
   chunked.print(F(")"));
   tagDivClose(chunked);
   tagLabelDiv(chunked, 0);
-  tagButton(chunked, F("Reboot"), ACT_REBOOT);
+  tagButton(chunked, F("Reboot"), ACT_REBOOT, true);
   tagDivClose(chunked);
 }
 
 
+/**************************************************************************/
+/*!
+  @brief Wait
+
+  @param chunked Chunked buffer
+*/
+/**************************************************************************/
 void contentWait(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, 0);
   chunked.print(F("Reloading. Please wait..."));
   tagDivClose(chunked);
 }
 
-// Functions providing snippets of repetitive HTML code
+/**************************************************************************/
+/*!
+  @brief Row for Packet Type setting
 
+  @param chunked Chunked buffer
+  @param packetType Packet type
+*/
+/**************************************************************************/
 void tagRowPacket(ChunkedPrint &chunked, const byte packetType) {
   if (getPacketStatus(packetType, PACKET_SEEN) == true) {
     chunked.print(F("<div class=r>"
@@ -481,6 +504,17 @@ void tagRowPacket(ChunkedPrint &chunked, const byte packetType) {
   }
 }
 
+/**************************************************************************/
+/*!
+  @brief <select><option>
+
+  @param chunked Chunked buffer
+  @param name Name POST_
+  @param options Strings for <option>
+  @param numOptions Number of options
+  @param value Value from data.config
+*/
+/**************************************************************************/
 void tagSelect(ChunkedPrint &chunked, const byte name, const __FlashStringHelper *options[], const byte numOptions, byte value) {
   chunked.print(F("<select name="));
   chunked.print(name, HEX);
@@ -496,6 +530,18 @@ void tagSelect(ChunkedPrint &chunked, const byte name, const __FlashStringHelper
   chunked.print(F("</select>"));
 }
 
+/**************************************************************************/
+/*!
+  @brief <input type=checkbox>
+  Can be hidden by JS
+
+  @param chunked Chunked buffer
+  @param name Name
+  @param setting Setting to be toggled
+  @param parent Input is parent (setting visibility for other inputs)
+  @param isPacket True if input is for Packet Type
+*/
+/**************************************************************************/
 void tagCheckbox(ChunkedPrint &chunked, const byte name, const bool setting, const bool parent, const bool isPacket) {
   for (byte i = 0; i < 2; i++) {
     chunked.print(F("<input value="));
@@ -517,6 +563,18 @@ void tagCheckbox(ChunkedPrint &chunked, const byte name, const bool setting, con
   }
 }
 
+/**************************************************************************/
+/*!
+  @brief <input type=number>
+
+  @param chunked Chunked buffer
+  @param name Name POST_
+  @param min Minimum value
+  @param max Maximum value
+  @param value Current value
+  @param units Units (string)
+*/
+/**************************************************************************/
 void tagInputNumber(ChunkedPrint &chunked, const byte name, uint16_t min, uint16_t max, uint16_t value, const __FlashStringHelper *units) {
   chunked.print(F("<input class='s n' required type=number name="));
   chunked.print(name, HEX);
@@ -534,6 +592,16 @@ void tagInputNumber(ChunkedPrint &chunked, const byte name, uint16_t min, uint16
   chunked.print(units);
 }
 
+/**************************************************************************/
+/*!
+  @brief <input>
+  IP address (4 elements)
+
+  @param chunked Chunked buffer
+  @param name Name POST_
+  @param ip IP address from data.config
+*/
+/**************************************************************************/
 void tagInputIp(ChunkedPrint &chunked, const byte name, byte ip[]) {
   for (byte i = 0; i < 4; i++) {
     chunked.print(F("<input name="));
@@ -545,6 +613,18 @@ void tagInputIp(ChunkedPrint &chunked, const byte name, byte ip[]) {
   }
 }
 
+/**************************************************************************/
+/*!
+  @brief <input>
+  HEX string (2 chars)
+
+  @param chunked Chunked buffer
+  @param name Name POST_
+  @param required True if input is required
+  @param printVal True if value is shown
+  @param value Value
+*/
+/**************************************************************************/
 void tagInputHex(ChunkedPrint &chunked, const byte name, const bool required, const bool printVal, const byte value) {
   chunked.print(F("<input name="));
   chunked.print(name, HEX);
@@ -558,6 +638,14 @@ void tagInputHex(ChunkedPrint &chunked, const byte name, const bool required, co
   chunked.print(F("'>"));
 }
 
+/**************************************************************************/
+/*!
+  @brief <label><div>
+
+  @param chunked Chunked buffer
+  @param label Label string
+*/
+/**************************************************************************/
 void tagLabelDiv(ChunkedPrint &chunked, const __FlashStringHelper *label) {
   chunked.print(F("<div class=r>"));
   chunked.print(F("<label> "));
@@ -568,21 +656,47 @@ void tagLabelDiv(ChunkedPrint &chunked, const __FlashStringHelper *label) {
   chunked.print(F("</label><div>"));
 }
 
-void tagButton(ChunkedPrint &chunked, const __FlashStringHelper *flashString, byte value) {
+/**************************************************************************/
+/*!
+  @brief <button>
+
+  @param chunked Chunked buffer
+  @param flashString Button string
+  @param value Value to be sent via POST
+  @param enabled Active if true, disabled if false
+*/
+/**************************************************************************/
+void tagButton(ChunkedPrint &chunked, const __FlashStringHelper *flashString, byte value, bool enabled) {
   chunked.print(F(" <button name="));
   chunked.print(POST_ACTION, HEX);
   chunked.print(F(" value="));
   chunked.print(value);
+  if (!enabled) chunked.print(F(" disabled"));
   chunked.print(F(">"));
   chunked.print(flashString);
   chunked.print(F("</button>"));
 }
 
+/**************************************************************************/
+/*!
+  @brief </div>
+
+  @param chunked Chunked buffer
+*/
+/**************************************************************************/
 void tagDivClose(ChunkedPrint &chunked) {
   chunked.print(F("</div>"
                   "</div>"));  // <div class=r>
 }
 
+/**************************************************************************/
+/*!
+  @brief <span>
+
+  @param chunked Chunked buffer
+  @param JSONKEY JSON_ id
+*/
+/**************************************************************************/
 void tagSpan(ChunkedPrint &chunked, const byte JSONKEY) {
   chunked.print(F("<span id="));
   chunked.print(JSONKEY);
@@ -591,8 +705,14 @@ void tagSpan(ChunkedPrint &chunked, const byte JSONKEY) {
   chunked.print(F("</span>"));
 }
 
+/**************************************************************************/
+/*!
+  @brief Menu item strings
 
-// Menu item strings
+  @param chunked Chunked buffer
+  @param item Page number
+*/
+/**************************************************************************/
 void stringPageName(ChunkedPrint &chunked, byte item) {
   switch (item) {
     case PAGE_INFO:
@@ -621,6 +741,14 @@ void stringPageName(ChunkedPrint &chunked, byte item) {
   }
 }
 
+/**************************************************************************/
+/*!
+  @brief Prints date and time
+
+  @param chunked Chunked buffer
+  @param myDate Date in Daikin format (6 bytes)
+*/
+/**************************************************************************/
 void stringDate(ChunkedPrint &chunked, byte myDate[]) {
   if (myDate[5] == 0) return;  // day can not be zero
   chunked.print(myDate[5]);
@@ -637,6 +765,14 @@ void stringDate(ChunkedPrint &chunked, byte myDate[]) {
 }
 
 
+/**************************************************************************/
+/*!
+  @brief Provide JSON value to a corresponding JSON key. The value is printed
+  in <span> and in JSON document fetched on the background.
+  @param chunked Chunked buffer
+  @param JSONKEY JSON key
+*/
+/**************************************************************************/
 void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
   switch (JSONKEY) {
 #ifdef ENABLE_EXTENDED_WEBUI
@@ -708,45 +844,61 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
       break;
     case JSON_CONTROLLER:
       {
-        switch (controllerState) {
-          case DISABLED:
-            chunked.print(F("Disabled "));
-            break;
-          case DISCONNECTED:
-            chunked.print(F("Disconnected "));
-            break;
-          case CONNECTING:
-            chunked.print(F("Connecting... "));
-            break;
-          case CONNECTED:
-            chunked.print(F("Connected "));
-            break;
-          case NOT_SUPPORTED:
-            chunked.print(F("Not Supported by the Pump "));
-            break;
-          default:
-            break;
+        if (p1p2Timer.isOver()) {
+          chunked.print(F("No connection to the P1P2 bus"));
+          return;
         }
-        switch (controllerState) {
-          case DISCONNECTED:
-          case NOT_SUPPORTED:
-            tagButton(chunked, F("Connect"), ACT_CONNECT);
-            break;
-          case CONNECTING:
-          case CONNECTED:
-            if (data.config.controllerMode == CONTROL_MANUAL) {  // Disconnect button available only in manual connect mode (not in auto connect mode)
-              tagButton(chunked, F("Disconnect"), ACT_DISCONNECT);
+        bool availableSlot = false;
+        for (byte i = 0; i < 16; i++) {
+          if ((0xF0 | i) == controllerAddr) continue;
+          if (FxRequests[i] == F0THRESHOLD) {
+            availableSlot = true;
+          }
+        }
+        chunked.print(F("This device is connected "));
+        if (controllerAddr > CONNECTING) {  // controller is connected
+          chunked.print(F("(address 0x"));
+          chunked.print(controllerAddr, HEX);
+          chunked.print(F(") "));
+          if (data.config.controllerMode == CONTROL_MANUAL) {
+            tagButton(chunked, F("Disable write"), ACT_DISCONNECT, true);
+          }
+        } else {
+          chunked.print(F("(read only) "));
+          if (data.config.controllerMode == CONTROL_MANUAL) {
+            if (controllerAddr == CONNECTING) {
+              tagButton(chunked, F("Connecting"), ACT_CONNECT, false);
+            } else {
+              tagButton(chunked, F("Enable write"), ACT_CONNECT, availableSlot);
             }
-            break;
-          default:
-            break;
+          }
+        }
+        chunked.print(F("<br>"));
+        for (byte j = 0; j < 2; j++) {  // list "Other device" in loop 0 and "Add. device can be connected" in loop 1
+          for (byte i = 0; i < 16; i++) {
+            if ((FxRequests[i] == 0)               // Skip address Fx if no 00Fx30 request was made (address Fx not supported by the pump)
+                || ((0xF0 | i) == controllerAddr)  // Skip address Fx if this device uses address Fx
+                || (j == 0 && FxRequests[i] >= 0)
+                || (j == 1 && FxRequests[i] != F0THRESHOLD)) continue;
+            if (FxRequests[i] < 0) {
+              chunked.print(F(" Another device is connected"));
+            } else if (FxRequests[i] == F0THRESHOLD) {
+              chunked.print(F(" Additional device can be connected"));
+            }
+            chunked.print(F(" (address 0xF"));
+            chunked.print(i, HEX);
+            chunked.print(F(")<br>"));
+          }
+        }
+        if (!availableSlot) {
+          chunked.print(F("Additional device not supported by the pump"));
         }
       }
       break;
     case JSON_WRITE_P1P2:
       {
         chunked.print(F(" <input type=submit value=Send"));
-        if (controllerState != CONNECTED) {
+        if (controllerAddr <= CONNECTING) {  // DISCONNECTED or CONNECTING
           chunked.print(F(" disabled"));
         }
         chunked.print(F(">"));
