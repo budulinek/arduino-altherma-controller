@@ -1,24 +1,3 @@
-/* *******************************************************************
-   Webserver functions
-
-   recvWeb()
-   - receives GET requests for web pages
-   - receives POST data from web forms
-   - calls processPost
-   - sends web pages, for simplicity, all web pages should are numbered (1.htm, 2.htm, ...), the page number is passed to sendPage() function
-   - executes actions (such as ethernet restart, reboot) during "please wait" web page
-
-   processPost()
-   - processes POST data from forms and buttons
-   - updates data.config (in RAM)
-   - saves config into EEPROM
-   - executes actions which do not require webserver restart
-
-   strToByte(), hex()
-   - helper functions for parsing and writing hex data
-
-   ***************************************************************** */
-
 const byte URI_SIZE = 24;   // a smaller buffer for uri
 const byte POST_SIZE = 24;  // a smaller buffer for single post parameter + key
 
@@ -121,6 +100,16 @@ enum JSON_type : byte {
   JSON_LAST,            // Must be the very last element in this array
 };
 
+/**************************************************************************/
+/*!
+  @brief Receives GET requests for web pages, receives POST data from web forms,
+  calls @ref processPost() function, sends web pages. For simplicity, all web pages
+  should are numbered (1.htm, 2.htm, ...), the page number is passed to 
+  the @ref sendPage() function. Also executes actions (such as ethernet restart,
+  reboot) during "please wait" web page.
+  @param client Ethernet TCP client.
+*/
+/**************************************************************************/
 void recvWeb(EthernetClient &client) {
   char uri[URI_SIZE];  // the requested page
   memset(uri, 0, sizeof(uri));
@@ -193,9 +182,13 @@ void recvWeb(EthernetClient &client) {
   action = ACT_NONE;
 }
 
-
-// This function stores POST parameter values in data.config.
-// Most changes are saved and applied immediatelly, some changes (IP settings, web server port, reboot) are saved but applied later after "please wait" page is sent.
+/**************************************************************************/
+/*!
+  @brief Processes POST data from forms and buttons, updates data.config (in RAM)
+  and saves config into EEPROM. Executes actions which do not require webserver restart
+  @param client Ethernet TCP client.
+*/
+/**************************************************************************/
 void processPost(EthernetClient &client) {
   byte command[1 + 2 + MAX_PARAM_SIZE];  // 1 byte packet type + 2 bytes param number + MAX_PARAM_SIZE bytes param value
   byte cmdLen = 0;                       // Length of the P1P2 command from WebUI
@@ -313,23 +306,6 @@ void processPost(EthernetClient &client) {
         break;
       case POST_CONTROL_MODE:
         data.config.controllerMode = byte(paramValueUint);
-        switch (data.config.controllerMode) {
-          case CONTROL_DISABLED:
-            controllerState = DISABLED;
-            break;
-          case CONTROL_MANUAL:
-            if (controllerState == DISABLED) {
-              controllerState = DISCONNECTED;
-            }
-            break;
-          case CONTROL_AUTO:
-            if (controllerState != CONNECTED) {
-              controllerState = CONNECTING;
-            }
-            break;
-          default:
-            break;
-        }
         break;
       case POST_TIMEOUT:
         data.config.connectTimeout = byte(paramValueUint);
@@ -377,10 +353,10 @@ void processPost(EthernetClient &client) {
       resetEepromStats();
       break;
     case ACT_CONNECT:
-      controllerState = CONNECTING;
+      controllerAddr = CONNECTING;
       break;
     case ACT_DISCONNECT:
-      controllerState = DISCONNECTED;
+      controllerAddr = DISCONNECTED;
       break;
     default:
       break;
@@ -398,7 +374,13 @@ void processPost(EthernetClient &client) {
   updateEeprom();  // it is safe to call, only changed values (and changed error and data counters) are updated
 }
 
-// takes 2 chars, 1 char + null byte or 1 null byte
+/**************************************************************************/
+/*!
+  @brief Parses string and returns single byte.
+  @param myStr String (2 chars, 1 char + null or 1 null) to be parsed.
+  @return Parsed byte.
+*/
+/**************************************************************************/
 byte strToByte(const char myStr[]) {
   if (!myStr) return 0;
   byte x = 0;
@@ -418,8 +400,14 @@ byte strToByte(const char myStr[]) {
   return x;
 }
 
-// from https://github.com/RobTillaart/printHelpers
 char __printbuffer[3];
+/**************************************************************************/
+/*!
+  @brief Converts byte to char string, from https://github.com/RobTillaart/printHelpers
+  @param val Byte to be conferted.
+  @return Char string.
+*/
+/**************************************************************************/
 char *hex(byte val) {
   char *buffer = __printbuffer;
   byte digits = 2;
@@ -433,7 +421,13 @@ char *hex(byte val) {
   return buffer;
 }
 
-// convert date to days
+/**************************************************************************/
+/*!
+  @brief Converts date to number of days since 1.1.2000.
+  @param date Date
+  @return Number of days since 1.1.2000
+*/
+/**************************************************************************/
 uint16_t days(byte *date) {
   return (date[3] * 365) + ((date[4] - 1) * 30) + date[5];
 }

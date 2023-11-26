@@ -1,32 +1,13 @@
-/* *******************************************************************
-   P1P2 bus read and write functions
-
-   recvBus()
-   - receives data from the P1P2 bus
-   - calls other functions to parse data, write to the P1P2 bus and process errors
-
-   processParseRead()
-   - forwards P1P2 packets to UDP
-   - reads some important variables (date, unit name, etc.)
-   - checks for other auxiliary controllers and gets controller ID
-
-   processErrors()
-   - stores errors in counters
-
-   processWrite()
-   - writes to the P1P2 bus
-
-   changedPacket()
-   - checks whether the packet payload (received via P1P2) has changed and stores new value
-
-   changed36Param()
-   - checks whether the parameter 36 value in the command (received via UDP or web interface) changed (more than hysteresis)
-   ***************************************************************** */
-
 static byte WB[WB_SIZE];
 static byte RB[RB_SIZE];
 static errorbuf_t EB[RB_SIZE];
 
+/**************************************************************************/
+/*!
+  @brief Receives data from the P1P2 bus, calls other functions to parse data,
+  writes to the P1P2 bus and processes errors.
+*/
+/**************************************************************************/
 void recvBus() {
   while (P1P2Serial.packetavailable()) {
     uint16_t delta;
@@ -44,8 +25,11 @@ void recvBus() {
       // message received, no error detected, forward to UDP and parse some info about the heat pump (name, date etc.)
       processParseRead(nread, delta);
 
+      // timer to monitor P1P2 messages (reading from bus)
+      p1p2Timer.sleep(data.config.connectTimeout * 1000UL);
+
       // act as auxiliary controller:
-      if (P1P2Serial.writeready() && controllerId && (RB[0] == 0x00) && (RB[1] == controllerId)) {  // controllerId > 0 only if controllerState == CONNECTED or CONNECTING
+      if (P1P2Serial.writeready() && (controllerAddr > CONNECTING) && (RB[0] == 0x00) && (RB[1] == controllerAddr)) {
 
         //if 1) the main controller sends request to our auxiliary controller 2) we are write ready => always respond
         processWrite(nread);
@@ -56,16 +40,20 @@ void recvBus() {
   }
 }
 
-
+/**************************************************************************/
+/*!
+  @brief Forwards packets read from the P1P2 bus to UDP, reads some important
+  variables (date, unit name, etc.), checks for other auxiliary controllers
+  and gets controller address.
+*/
+/**************************************************************************/
 void processParseRead(uint16_t n, uint16_t delta) {
   if (CRC_GEN) n--;  // omit CRC
-
   // update counters and packet type status
   data.p1p2Cnt[P1P2_READ_OK]++;
   if (setPacketStatus(RB[2], PACKET_SEEN, true) == true) {
     updateEeprom();
   }
-
   // Send to UDP
   if (data.config.sendAllPackets || getPacketStatus(RB[2], PACKET_SENT) == true) {
     if (changedPacket(RB, n) == true) {
@@ -104,7 +92,6 @@ void processParseRead(uint16_t n, uint16_t delta) {
     }
     if (daikinIndoor[0] == '\0') daikinIndoor[0] = '-';  // if response from heat pup is empty, write '-' in order to prevent repeated requests from us
   }
-
 #ifdef ENABLE_EXTENDED_WEBUI
   if ((RB[0] == 0x40) && (RB[1] == 0x00) && (RB[2] == PACKET_TYPE_OUTDOOR_NAME)) {
     for (byte i = 0; i < NAME_SIZE - 1; i++) {
@@ -114,36 +101,43 @@ void processParseRead(uint16_t n, uint16_t delta) {
     if (daikinOutdoor[0] == '\0') daikinOutdoor[0] = '-';  // if response from heat pup is empty, write '-' in order to prevent repeated requests from us
   }
 #endif /* ENABLE_EXTENDED_WEBUI */
-
-  // check for other auxiliary controllers and get controller ID
-  if (((RB[1] & 0xFE) == 0xF0) && ((RB[2] & PACKET_TYPE_HANDSHAKE) == PACKET_TYPE_HANDSHAKE)) {
-    if (RB[0] == 0x40) {
+  // check for other auxiliary controllers and get controller address
+  if (((RB[1] & 0xF0) == 0xF0) && (RB[2] >= PACKET_TYPE_HANDSHAKE && RB[2] <= 0x3F)) {
+    if (RB[0] == 0x00 && RB[2] == PACKET_TYPE_HANDSHAKE) {
+      // 00Fx30 request message received
+      // check if there is no other auxiliary controller
+      if ((FxRequests[RB[1] & 0x0F]) == -1) {
+        FxRequests[RB[1] & 0x0F] = 1;  // skip 0 (reserved for "request not made")
+      } else if ((FxRequests[RB[1] & 0x0F]) < F0THRESHOLD) {
+        FxRequests[RB[1] & 0x0F]++;
+      } else if ((FxRequests[RB[1] & 0x0F]) == F0THRESHOLD) {
+        // Threshold reached, no auxiliary controller answering to address 0x(RB[1], HEX)
+        if (controllerAddr == CONNECTING) {
+          controllerAddr = RB[1];
+        }
+      }
+    } else if (RB[0] == 0x40) {
       // 40Fx3x auxiliary controller reply received - note this could be our own (slow, delta=F030DELAY or F03XDELAY) reply so only reset count if delta < min(F03XDELAY, F030DELAY) (- margin)
       // Note for developers using >1 P1P2Monitor-interfaces (=to self): this detection mechanism fails if there are 2 P1P2Monitor programs (and adapters) with same delay settings on the same bus.
       // check if there is any other auxiliary controller on 0x3x
       if ((delta < F03XDELAY - 2) && (delta < F030DELAY - 2)) {
-        FxAbsentCnt[RB[1] & 0x01] = 0;
-        if (RB[1] == controllerId) {
-          // this should only happen if another auxiliary controller is connected if/after controllerId is set, either because
-          //    -controllerId is set and conflicts with auxiliary controller, or
-          //    -because another auxiliary controller has been connected after controllerId has been manually set
-          controllerState = NOT_SUPPORTED;
-        }
-      }
-    } else if (RB[0] == 0x00) {
-      // 00Fx3x request message received
-      // check if there is no other auxiliary controller
-      if ((RB[2] == PACKET_TYPE_HANDSHAKE) && (FxAbsentCnt[RB[1] & 0x01] < F0THRESHOLD) && controllerState == CONNECTING) {
-        FxAbsentCnt[RB[1] & 0x01]++;
-        if (FxAbsentCnt[RB[1] & 0x01] == F0THRESHOLD) {
-          // No auxiliary controller answering to address 0x (RB[1], HEX)
-          controllerId = RB[1];
+        FxRequests[RB[1] & 0x0F] = -2;
+        if (RB[1] == controllerAddr) {
+          // controllerAddr conflicts with auxiliary controller
+          // this should only happen if another auxiliary controller is connected after controllerAddr is set
+          controllerAddr = DISCONNECTED;
         }
       }
     }
   }
 }
 
+/**************************************************************************/
+/*!
+  @brief Stores errors in counters.
+  @param nread Bytes read.
+*/
+/**************************************************************************/
 void processErrors(uint16_t nread) {
   bool packetError[P1P2_LAST];
   memset(packetError, 0, sizeof(packetError));
@@ -175,6 +169,12 @@ void processErrors(uint16_t nread) {
   }
 }
 
+/**************************************************************************/
+/*!
+  @brief Writes to the P1P2 bus.
+  @param n Bytes to be written.
+*/
+/**************************************************************************/
 void processWrite(uint16_t n) {
   //if the main controller sends request to our auxiliary controller, always respond
   WB[0] = 0x40;
@@ -207,7 +207,6 @@ void processWrite(uint16_t n) {
       } else {
         data.p1p2Cnt[P1P2_WRITE_QUOTA]++;
       }
-      // memset(savedPackets, 0xFF, sizeof(savedPackets));  // reset saved packets
     } else {
       // TODO error
     }
@@ -220,7 +219,7 @@ void processWrite(uint16_t n) {
           d = F030DELAY;
           for (byte i = 3; i < n; i++) WB[i] = 0x00;
           // 00F030 request message received, we will:
-          // - reply with 000F030 response
+          // - reply with 40F030 response
           // - hijack every 2nd time slot to send request counters
           static bool hijack = true;  // allow hijack
           if (cmdType >= PACKET_TYPE_CONTROL[FIRST] && cmdType <= PACKET_TYPE_CONTROL[LAST]) {
@@ -265,8 +264,7 @@ void processWrite(uint16_t n) {
           }
         }
         break;
-      case 0x31:                      // in: 15 byte; out: 15 byte; out pattern is copy of in pattern except for 2 bytes RB[7] RB[8]; function partly date/time, partly unknown
-        controllerState = CONNECTED;  // handshake (exchange of packet types 0x30) was successful and the main controller proceeds to identify the auxiliary controller
+      case 0x31:  // in: 15 byte; out: 15 byte; out pattern is copy of in pattern except for 2 bytes RB[7] RB[8]; function partly date/time, partly unknown
         connectionTimer.sleep(data.config.connectTimeout * 1000UL);
         // RB[7] RB[8] seem to identify the auxiliary controller type;
         // Do pretend to be a LAN adapter (even though this may trigger "data not in sync" upon restart?)
@@ -302,11 +300,17 @@ void processWrite(uint16_t n) {
   data.p1p2Cnt[P1P2_WRITE_OK]++;
 }
 
+/**************************************************************************/
+/*!
+  @brief Checks whether the packet payload (received via P1P2) has changed
+  and stores new value.
+  @param packet Packet payload
+  @param packetLen Packet length
+  @return True if a packet is observed for the first time or if any byte
+  in the payload has changed.
+*/
+/**************************************************************************/
 bool changedPacket(byte packet[], const byte packetLen) {
-  // returns true if a packet is observed for the first time
-  // returns true if any byte in the payload has changed
-  // the new value is saved
-  //
   bool newPacket = false;
   byte pts = (packet[0] >> 6) & 0x01;
   byte pti = packet[2] - PACKET_TYPE_DATA[FIRST];
@@ -340,11 +344,16 @@ bool changedPacket(byte packet[], const byte packetLen) {
   return newPacket;
 }
 
+/**************************************************************************/
+/*!
+  @brief Checks whether the parameter 36 value in the command (received
+  via UDP or web interface) changed (more than hysteresis), new value is saved.
+  @param cmd Command received via UDP or web interface
+  @return True if a parameter is received from UDP for the first time
+  or if change in param value is greater than hysteresis.
+*/
+/**************************************************************************/
 bool changed36Param(byte cmd[]) {
-  // returns true if a parameter is received from UDP for the first time
-  // returns true if change in param value is greater than hysteresis
-  // the new value is saved
-  //
   bool newVal = false;
   if (cmd[0] != 0x36) {
     newVal = true;
@@ -356,7 +365,7 @@ bool changed36Param(byte cmd[]) {
     int16_t paramVal = (cmd[4] << 8) | cmd[3];
     int16_t storedVal = (saved36Params[paramNum][1] << 8) | saved36Params[paramNum][0];
     // this byte or at least some bits have been seen and saved before.
-    if (abs(int16_t(storedVal - paramVal)) >= int16_t(data.config.hysteresis * 10)) {
+    if (abs(int16_t(storedVal - paramVal)) >= int16_t(data.config.hysteresis)) {
       newVal = true;
       saved36Params[paramNum][0] = cmd[3];
       saved36Params[paramNum][1] = cmd[4];

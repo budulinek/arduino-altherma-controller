@@ -1,4 +1,4 @@
-/* Altherma UDP Controller: Monitors and controls Daikin E-Series (Altherma) het pumps through P1/P2 bus.
+/* Altherma UDP Controller: Monitors and controls Daikin E-Series (Altherma) heat pumps through P1/P2 bus.
 
   Version history
   v0.1 2020-11-30 Initial commit, save history of selected packets, settings
@@ -8,10 +8,12 @@
   v1.0 2023-04-18 Major upgrade: web interface, store settings in EEPROM, P1P2 error counters
   v2.0 2023-08-25 Manual MAC, Daikin EEPROM write daily quota, Simplify Arduino EEPROM read / write, Tools page
   v2.1 2023-09-17 Improve advanced settings, disable DHCP renewal fallback
+  v3.0 2023-XX-XX Function comments. Remove "Disabled" Controller mode (only Manual; Auto),
+                  improved automatic connection to the P1P2 bus, connect to any peripheral address
+                  between 0xF0 to 0xFF (depends on Altherma model), show other controllers and available addresses.
+*/
 
- */
-
-const byte VERSION[] = { 2, 1 };
+const byte VERSION[] = { 3, 0 };
 
 #include <SPI.h>
 #include <Ethernet.h>
@@ -41,9 +43,8 @@ enum packetStatus_t : byte {
 };
 
 enum mode_t : byte {
-  CONTROL_DISABLED,  // Disabled
-  CONTROL_MANUAL,    // Manual Connect
-  CONTROL_AUTO       // Auto Connect
+  CONTROL_MANUAL,  // Manual Connect
+  CONTROL_AUTO     // Auto Connect
 };
 
 // Data Packets
@@ -65,7 +66,6 @@ typedef struct {
   uint16_t webPort;
   byte controllerMode;
   byte connectTimeout;
-  bool notSupported;
   byte hysteresis;
   byte writeQuota;
   bool sendAllPackets;
@@ -89,7 +89,6 @@ const config_t DEFAULT_CONFIG = {
   DEFAULT_WEB_PORT,
   DEFAULT_COTROLLER_MODE,
   (F0THRESHOLD * 2),  // connectTimeout
-  false,              // notSupported flag
   DEFAUT_TEMPERATURE_HYSTERESIS,
   DEFAULT_EEPROM_QUOTA,
   DEFAULT_SEND_ALL,
@@ -141,8 +140,7 @@ typedef struct {
 
 data_t data;
 
-// each request is stored in 3 queues (all queues are written to, read and deleted in sync)
-CircularBuffer<byte, MAX_QUEUE_DATA> cmdQueue;  // queue of PDU data
+CircularBuffer<byte, MAX_QUEUE_DATA> cmdQueue;  // queue of write commands
 
 
 /****** ETHERNET AND P1P2 SERIAL ******/
@@ -172,7 +170,7 @@ public:
   void sleep(uint32_t sleepTimeMs);
 };
 boolean Timer::isOver() {
-  if ((unsigned long)(millis() - timestampLastHitMs) > sleepTimeMs) {
+  if (uint32_t(millis() - timestampLastHitMs) > sleepTimeMs) {
     return true;
   }
   return false;
@@ -183,23 +181,32 @@ void Timer::sleep(uint32_t sleepTimeMs) {
 }
 
 Timer eepromTimer;          // timer to delay writing statistics to EEPROM
-Timer connectionTimer;      // timer to monitor connection status
-Timer counterRequestTimer;  // 0xB8 counter request
+Timer connectionTimer;      // timer to monitor connection status (connection to write to bus)
+Timer p1p2Timer;            // timer to monitor P1P2 messages (reading from bus)
+Timer counterRequestTimer;  // timer for 0xB8 counter requests
 
 enum state : byte {
-  DISABLED,
   DISCONNECTED,
   CONNECTING,
-  CONNECTED,
-  NOT_SUPPORTED
 };
 
-byte controllerState;
-byte controllerId = 0x00;
+/*!
+    @brief Status and peripheral address for the Arduino controller
+    @return Status of the Arduino controller:
+        - @c DISCONNECTED controller disconnected
+        - @c CONNECTING controller connecting to first available address
+        - @c Fx controller connected with address Fx
+*/
+byte controllerAddr = DISCONNECTED;
 
-// FxAbsentCnt[x] counts number of unanswered 00Fx30 messages;
-// if -1 than no Fx request or response seen (relevant to detect whether F1 controller is supported or not)
-static int8_t FxAbsentCnt[2] = { -1, -1 };
+/*!
+    @brief Counts number of unanswered 00Fx30 requests, supports up to 16 addresses from F0 to FF
+    @return Status of each address:
+        - FxRequests[x] == 0 no 00Fx30 request was made (Fx address not supported by the pump)
+        - FxRequests[x] < 0 other device is connected with Fx address
+        - FxRequests[x] > 0 number of unasnwered requests for Fx address
+*/
+static int8_t FxRequests[16];
 
 /****** RUN TIME AND DATA COUNTERS ******/
 
@@ -259,15 +266,7 @@ void setup() {
   P1P2Serial.setEcho(true);                           // defines whether written data is read back and verified against written data (advise to keep this 1)
   P1P2Serial.setDelayTimeout(INIT_SDTO);
 
-  // initialize P1P2 connection
-  if (data.config.controllerMode == CONTROL_AUTO && !data.config.notSupported) {
-    controllerState = CONNECTING;
-    connectionTimer.sleep(data.config.connectTimeout * 1000UL);
-  } else if (data.config.controllerMode == CONTROL_DISABLED) {
-    controllerState = DISABLED;
-  } else {
-    controllerState = DISCONNECTED;
-  }
+  connectionTimer.sleep(data.config.connectTimeout * 1000UL);
   eepromTimer.sleep(EEPROM_INTERVAL * 60UL * 60UL * 1000UL);  // EEPROM_INTERVAL is in hours, sleep is in milliseconds!
 }
 

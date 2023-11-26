@@ -1,45 +1,9 @@
-/* *******************************************************************
-   Ethernet interface functions
-
-   startEthernet()
-   - initiates ethernet interface
-   - if enabled, gets IP from DHCP
-   - starts all servers (Modbus TCP, UDP, web server)
-
-   resetFunc()
-   - well... resets Arduino
-
-   maintainDhcp()
-   - maintain DHCP lease
-
-   maintainUptime()
-   - maintains up time in case of millis() overflow
-
-   maintainCounters(), rollover()
-   - synchronizes roll-over of data counters to zero
-
-   resetStats(), resetEepromStats()
-   - resets P1P2 stats and Daikin EEPROM stats
-
-   generateMac()
-   - generate random MAC using pseudo random generator (faster and than build-in random())
-
-   manageSockets()
-   - closes sockets which are waiting to be closed or which refuse to close
-   - forwards sockets with data available for further processing by the webserver
-   - disconnects (closes) sockets which are too old / idle for too long
-   - opens new sockets if needed (and if available)
-
-   CreateTrulyRandomSeed()
-   - seed pseudorandom generator using  watch dog timer interrupt (works only on AVR)
-   - see https://sites.google.com/site/astudyofentropy/project-definition/timer-jitter-entropy-sources/entropy-library/arduino-random-seed
-
-
-   + preprocessor code for identifying microcontroller board
-
-   ***************************************************************** */
-
-
+/**************************************************************************/
+/*!
+  @brief Initiates ethernet interface, if DHCP enabled, gets IP from DHCP,
+  starts all servers (UDP, web server).
+*/
+/**************************************************************************/
 void startEthernet() {
   if (ETH_RESET_PIN != 0) {
     pinMode(ETH_RESET_PIN, OUTPUT);
@@ -68,8 +32,18 @@ void startEthernet() {
 #endif
 }
 
+/**************************************************************************/
+/*!
+  @brief Resets Arduino (works only on AVR chips).
+*/
+/**************************************************************************/
 void (*resetFunc)(void) = 0;  //declare reset function at address 0
 
+/**************************************************************************/
+/*!
+  @brief Maintains DHCP lease.
+*/
+/**************************************************************************/
 #ifdef ENABLE_DHCP
 void maintainDhcp() {
   if (data.config.enableDhcp && dhcpSuccess == true) {  // only call maintain if initial DHCP request by startEthernet was successfull
@@ -78,6 +52,11 @@ void maintainDhcp() {
 }
 #endif /* ENABLE_DHCP */
 
+/**************************************************************************/
+/*!
+  @brief Maintains uptime in case of millis() overflow.
+*/
+/**************************************************************************/
 #ifdef ENABLE_EXTENDED_WEBUI
 void maintainUptime() {
   uint32_t milliseconds = millis();
@@ -94,9 +73,13 @@ void maintainUptime() {
 }
 #endif /* ENABLE_EXTENDED_WEBUI */
 
-const uint32_t ROLLOVER = 0xFFFFFF00;
+/**************************************************************************/
+/*!
+  @brief Synchronizes roll-over of data counters to zero.
+*/
+/**************************************************************************/
 bool rollover() {
-  // synchronize roll-over of run time, data counters and modbus stats to zero, at 0xFFFFFF00
+  const uint32_t ROLLOVER = 0xFFFFFF00;
   for (byte i = 0; i < P1P2_LAST; i++) {
     if (data.p1p2Cnt[i] > ROLLOVER) {
       return true;
@@ -115,7 +98,11 @@ bool rollover() {
   return false;
 }
 
-// resets counters to 0: data.p1p2Cnt, data.udpCnt
+/**************************************************************************/
+/*!
+  @brief Resets P1P2 stats, date and UDP stats.
+*/
+/**************************************************************************/
 void resetStats() {
   memset(data.statsDate, 0, sizeof(data.statsDate));
   memset(data.p1p2Cnt, 0, sizeof(data.p1p2Cnt));
@@ -125,11 +112,21 @@ void resetStats() {
 #endif /* ENABLE_EXTENDED_WEBUI */
 }
 
+/**************************************************************************/
+/*!
+  @brief Resets Daikin EEPROM stats.
+*/
+/**************************************************************************/
 void resetEepromStats() {
   memset(&data.eepromDaikin, 0, sizeof(eeprom_t));
 }
 
-// generate new MAC (bytes 0, 1 and 2 are static, bytes 3, 4 and 5 are generated randomly)
+/**************************************************************************/
+/*!
+  @brief Generate random MAC using pseudo random generator,
+  bytes 0, 1 and 2 are static (MAC_START), bytes 3, 4 and 5 are generated randomly
+*/
+/**************************************************************************/
 void generateMac() {
   // Marsaglia algorithm from https://github.com/RobTillaart/randomHelpers
   seed1 = 36969L * (seed1 & 65535L) + (seed1 >> 16);
@@ -142,19 +139,28 @@ void generateMac() {
   }
 }
 
+/**************************************************************************/
+/*!
+  @brief Write (update) data to Arduino EEPROM.
+*/
+/**************************************************************************/
 void updateEeprom() {
   eepromTimer.sleep(EEPROM_INTERVAL * 60UL * 60UL * 1000UL);  // EEPROM_INTERVAL is in hours, sleep is in milliseconds!
   data.eepromWrites++;                                        // we assume that at least some bytes are written to EEPROM during EEPROM.update or EEPROM.put
   EEPROM.put(DATA_START, data);
 }
 
-#if MAX_SOCK_NUM == 8
-uint32_t lastSocketUse[MAX_SOCK_NUM] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-#elif MAX_SOCK_NUM == 4
-uint32_t lastSocketUse[MAX_SOCK_NUM] = { 0, 0, 0, 0 };
-#endif
 
-// from https://github.com/SapientHetero/Ethernet/blob/master/src/socket.cpp
+uint32_t lastSocketUse[MAX_SOCK_NUM];
+/**************************************************************************/
+/*!
+  @brief Closes sockets which are waiting to be closed or which refuse to close,
+  forwards sockets with data available for further processing by the webserver,
+  disconnects (closes) sockets which are too old (idle for too long), opens
+  new sockets if needed (and if available).
+  From https://github.com/SapientHetero/Ethernet/blob/master/src/socket.cpp
+*/
+/**************************************************************************/
 void manageSockets() {
   uint32_t maxAge = 0;         // the 'age' of the socket in a 'disconnectable' state that was last used the longest time ago
   byte oldest = MAX_SOCK_NUM;  // the socket number of the 'oldest' disconnectable socket
@@ -231,9 +237,14 @@ void manageSockets() {
   }
 
   SPI.endTransaction();  // Serves to o release the bus for other devices to access it. Since the ethernet chip is the only device
-  // we do not need SPI.beginTransaction(SPI_ETHERNET_SETTINGS) or SPI.endTransaction()
 }
 
+/**************************************************************************/
+/*!
+  @brief Disconnect or close a socket.
+  @param s Socket number.
+*/
+/**************************************************************************/
 void disconSocket(byte s) {
   if (W5100.readSnSR(s) == SnSR::ESTABLISHED) {
     W5100.execCmdSn(s, Sock_DISCON);  // Sock_DISCON does not close LISTEN sockets
@@ -243,65 +254,67 @@ void disconSocket(byte s) {
   }
 }
 
+/**************************************************************************/
+/*!
+  @brief Maintains connection to the P1P2 bus.
+*/
+/**************************************************************************/
 void manageController() {
-  if ((controllerState == NOT_SUPPORTED) != data.config.notSupported) {
-    data.config.notSupported = (controllerState == NOT_SUPPORTED);
-    updateEeprom();
+  if (p1p2Timer.isOver()) {
+    memset(FxRequests, 0, sizeof(FxRequests));
   }
-  switch (controllerState) {
-    case DISABLED:
-    case DISCONNECTED:
-    case NOT_SUPPORTED:
-      connectionTimer.sleep(data.config.connectTimeout * 1000UL);
-      controllerId = 0x00;
-      FxAbsentCnt[0] = -1;
-      FxAbsentCnt[1] = -1;
-      cmdQueue.clear();
-      indoorInQueue = false;
-      outdoorInQueue = false;
-      if (data.config.controllerMode == CONTROL_AUTO && controllerState == DISCONNECTED) {
-        controllerState = CONNECTING;
+  if (controllerAddr == DISCONNECTED || controllerAddr == CONNECTING) {
+    cmdQueue.clear();
+    indoorInQueue = false;
+    outdoorInQueue = false;
+  }
+  if (controllerAddr == DISCONNECTED || (controllerAddr == CONNECTING && data.config.controllerMode == CONTROL_AUTO)) {
+    connectionTimer.sleep(data.config.connectTimeout * 1000UL);
+    if (data.config.controllerMode == CONTROL_AUTO) {
+      controllerAddr = CONNECTING;
+    }
+  }
+  if (connectionTimer.isOver()) {
+    if (data.config.controllerMode == CONTROL_AUTO) {
+      controllerAddr = CONNECTING;
+    } else {
+      controllerAddr = DISCONNECTED;
+    }
+  }
+  if (controllerAddr > CONNECTING                       // Send counter requests only if controller in Write mode (after 00Fx30 request + 40Fx30 reply)
+      || data.config.controllerMode == CONTROL_AUTO) {  // Or if Write to P1P2 is set to Automatically
+    if (counterRequestTimer.isOver()) {
+      counterRequestTimer.sleep(data.config.counterPeriod * 60UL * 1000UL);
+      cmdQueue.push(2);
+      cmdQueue.push(PACKET_TYPE_COUNTER);
+      cmdQueue.push(0);
+      if (data.config.sendDataPackets == DATA_CHANGE_AND_REQUEST) {
+        memset(savedPackets, 0xFF, sizeof(savedPackets));  // reset saved packets
       }
-      break;
-    case CONNECTING:
-    case CONNECTED:
-      if (connectionTimer.isOver()) {
-        if (FxAbsentCnt[0] == 0 || FxAbsentCnt[1] == 0) {
-          controllerState = NOT_SUPPORTED;
-        } else {
-          controllerState = DISCONNECTED;
-        }
-      }
-      if (counterRequestTimer.isOver()) {
-        counterRequestTimer.sleep(data.config.counterPeriod * 60UL * 1000UL);
-        cmdQueue.push(2);
-        cmdQueue.push(PACKET_TYPE_COUNTER);
-        cmdQueue.push(0);
-        if (data.config.sendDataPackets == DATA_CHANGE_AND_REQUEST) {
-          memset(savedPackets, 0xFF, sizeof(savedPackets));  // reset saved packets
-        }
-      }
-      if (daikinIndoor[0] == '\0' && indoorInQueue == false) {
-        cmdQueue.push(2);
-        cmdQueue.push(PACKET_TYPE_INDOOR_NAME);
-        cmdQueue.push(0);
-        indoorInQueue = true;
-      }
+    }
+    if (daikinIndoor[0] == '\0' && indoorInQueue == false) {
+      cmdQueue.push(2);
+      cmdQueue.push(PACKET_TYPE_INDOOR_NAME);
+      cmdQueue.push(0);
+      indoorInQueue = true;
+    }
 #ifdef ENABLE_EXTENDED_WEBUI
-      if (daikinOutdoor[0] == '\0' && outdoorInQueue == false) {
-        cmdQueue.push(2);
-        cmdQueue.push(PACKET_TYPE_OUTDOOR_NAME);
-        cmdQueue.push(0);
-        outdoorInQueue = true;
-      }
+    if (daikinOutdoor[0] == '\0' && outdoorInQueue == false) {
+      cmdQueue.push(2);
+      cmdQueue.push(PACKET_TYPE_OUTDOOR_NAME);
+      cmdQueue.push(0);
+      outdoorInQueue = true;
+    }
 #endif /* ENABLE_EXTENDED_WEBUI */
-      break;
-    default:
-      break;
   }
 }
 
-// https://sites.google.com/site/astudyofentropy/project-definition/timer-jitter-entropy-sources/entropy-library/arduino-random-seed
+/**************************************************************************/
+/*!
+  @brief Seed pseudorandom generator using  watch dog timer interrupt (works only on AVR).
+  See https://sites.google.com/site/astudyofentropy/project-definition/timer-jitter-entropy-sources/entropy-library/arduino-random-seed
+*/
+/**************************************************************************/
 void CreateTrulyRandomSeed() {
   seed1 = 0;
   nrot = 32;  // Must be at least 4, but more increased the uniformity of the produced seeds entropy.
@@ -328,11 +341,9 @@ ISR(WDT_vect) {
   seed1 = seed1 ^ TCNT1L;
 }
 
-// Board definitions
+// Preprocessor code for identifying microcontroller board
 #if defined(TEENSYDUINO)
-
 //  --------------- Teensy -----------------
-
 #if defined(__AVR_ATmega32U4__)
 #define BOARD F("Teensy 2.0")
 #elif defined(__AVR_AT90USB1286__)
@@ -350,9 +361,7 @@ ISR(WDT_vect) {
 #else
 #define BOARD F("Unknown Board")
 #endif
-
 #else  // --------------- Arduino ------------------
-
 #if defined(ARDUINO_AVR_ADK)
 #define BOARD F("Arduino Mega Adk")
 #elif defined(ARDUINO_AVR_BT)  // Bluetooth
@@ -406,5 +415,4 @@ ISR(WDT_vect) {
 #else
 #define BOARD F("Unknown Board")
 #endif
-
 #endif
