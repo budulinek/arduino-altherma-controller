@@ -99,15 +99,15 @@ This controller has a built-in webserver which allows you to configure the contr
 **Daikin Outdoor Unit**.\*\* Shows the name of your Altherma outdoor unit.
 
 **External Controllers**. Shows all external controller connected to the P1/P2 bus (incl. their addresses) and provides info whether additional controller is supported by your heat pump. These messages can show up:
-* **No connection to the P1P2 bus**. The controller failed to read any data packets from the P1/P2 bus. Check your connection to the P1/P2 bus.
-* **This device is connected (read only)**. The controller is connected in read only mode. It does not write anything to the P1/P2 bus but it still passively monitors the P1/P2 bus and sends (most) data from the heat pump via UDP messages. If your **Enable Write to P1P2** setting is set to Manually, you can manually enable write mode (if your pump supports additional device on the P1/P2 bus). Read only mode has several limitations:
+* **No connection to the P1P2 bus**. No data packets were read from the P1/P2 bus. Check your connection to the P1/P2 bus.
+* **This device is connected (read only)**. The controller is connected in read only mode. It does not write anything to the P1/P2 bus but it still passively monitors the P1/P2 bus and sends (most) data from the heat pump via UDP messages. If your **Enable Write to P1P2** setting is set to *Manually*, you can manually enable write mode (if your pump supports additional device on the P1/P2 bus). Read only mode has several limitations:
   - does not show Altherma model in **Daikin Unit**
   - can not periodically request, read (and send via UDP) Altherma counters
   - can not control Altherma by sending **Write Command** through the web interface
   - can not control Altherma by sending commands via UDP
-* **This device is connected (address 0xF..)**. This Arduino device is connected to the P1/P2 bus for both reading and writing (sending commands). The controller can write to the P1/P2 bus only after it has been allocated an address by the heat pump. This Arduino controller will accept any address provided by the heat pump in the 0xF0 ~ 0xFF range. If your **Enable Write to P1P2** setting is set to Manually, you can manually disable write mode (release the address) and downgrade the connection to read only.
-* **Another device is connected (address 0xF..)**. Another device is connected to the P1/P2 bus (to the main Daikin controller), using address 0xF.. This "another device" can be second Arduino device, commercial controller by Daikin or by third party (Daikin LAN adapter, Daikin Madoka, DCOM LT/MB module, Zennio KLIC-DA KNX interface, Coolmaster, etc.).
-* **Additional device can be connected (address 0xF..)**. Additional device can be connected to the P1/P2 bus. How many devices can be connected (ie. how many addresses are available for external devices) depends on the model of the heat pump. For example, Altherma LT supports 1 device (address 0xF0), Altherma 3 support up to 3 devices (addresses 0xF0, 0xF1 and 0xFF).
+* **This device is connected (address 0xF..)**. This Arduino device is connected to the P1/P2 bus for both reading and writing (sending commands). The controller can write to the P1/P2 bus only after it has been allocated an address by the heat pump (Arduino will accept any address in the 0xF0 ~ 0xFF range). If your **Enable Write to P1P2** setting is set to *Manually*, you can manually disable write mode (release the address) and downgrade the connection to read only.
+* **Another device is connected (address 0xF..)**. Another device is connected to the P1/P2 bus using address 0xF.. This "another device" can be second Arduino device, commercial controller by Daikin or by third party (Daikin LAN adapter, Daikin Madoka, DCOM LT/MB, Zennio KLIC-DA KNX, Coolmaster, etc.).
+* **Additional device can be connected (address 0xF..)**. Additional device can be connected to the P1/P2 bus. How many devices can be connected (ie. how many addresses are available for external devices) depends on the model of the heat pump. For example, Altherma LT supports only 1 device (address 0xF0), Altherma 3 support up to 3 devices (addresses 0xF0, 0xF1 and 0xFF).
 * **Additional device not supported by the pump**. All available addresses have been allocated to external controllers. The heat pump (the main Daikin controller) does not support additional device on the P1/P2 bus.
 
 **Date**. Displays internal date and time of the heat pump.
@@ -126,7 +126,10 @@ This controller has a built-in webserver which allows you to configure the contr
 
 **P1P2 Packets**. Counters for packets read from the P1/P2 bus or written to the P1/P2 bus, counters for various read and write errors. If any of the counters rolls over the unsigned long maximum (4,294,967,295), all counters will reset to 0.
 * **Bus Read OK**. Number of packets read from the P1/P2 bus, without errors. Not all of them are sent via UDP (see the **Packet Filter** settings). Packets are read from the P1/P2 bus (and sent via UDP) even if the controller is not connected to the P1/P2 bus.
-* **Bus Write OK**. Number of packets written to the P1/P2 bus. Includes both packets written automatically by the controller (requests for the counters packets), write commands from the web interface and write commands received via UDP. Writing to the P1/P2 bus is only possible if the controller is connected to the P1/P2 bus (to the main Daikin controller).
+* **Bus Write OK**. Number of packets written to the P1/P2 bus. Writing to the P1/P2 bus is only possible after the controller receives an address from the pump (from the main Daikin controller). Several types of packets are be written to the P1/P2 bus:
+  - Regular responses to heat pump's polling of external controllers (keep alive).
+  - Requests for the counters packets. If the **Enable Write to P1P2** setting is set to *Automatically*, requests for counter packets are sent even if the controller failed to receive an address (is in read only mode).
+  - Write commands received via web interface or UDP. These packets are written to the P1/P2 bus and written in Daikin EEPROM.
 * **EEPROM Write Quota Reached**. Daily EEPROM Write Quota (configured in **P1P2 Settings**) was reached. The command (received via UDP or from the web interface) was dropped.
 * **Write Command Queue Full**. Internal queue (circular buffer) for commands is full. The command (received via UDP or from the web interface) was dropped.
 * **Write Command Invalid**. Command received via UDP or from the web interface was invalid, it was dropped. Possible reasons:
@@ -179,7 +182,7 @@ This controller has a built-in webserver which allows you to configure the contr
 
 **Enable Write to P1P2**.
 * **Manually** (default). User can manually enable / disable writing to the P1/P2 bus (see the **P1P2 Status** page). After reboot or if connection is interrupted (see **Connection Timeout**), connection is downgraded to read only.
-* **Automatically**. The controller tries to (re)enable writing to the P1/P2 bus (to the main Daikin controller) after (re)start, or if the connection is interrupted (see **Connection Timeout**). Use **Automatically** at your own risk and only after you have successfuly enabled write manually! **Check the P1P2 Status page for P1/P2 errors and monitor Daikin EEPROM Writes in order to minimize Daikin controller EEPROM wear!**
+* **Automatically**. The controller tries to (re)enable writing to the P1/P2 bus after (re)start, or if connection is interrupted. Even if the controller fails to receive an address from the heat pump, it will write counter requests to the P1/P2 bus (address is not needed for sending counter requests). Use *Automatically* at your own risk and only after you have successfuly enabled write manually! **Check the P1P2 Status page for P1/P2 errors and monitor Daikin EEPROM Writes in order to minimize Daikin controller EEPROM wear!**
 
 **EEPROM Write Quota**. Daily quota for writes to the EEPROM of the main Daikin controller. Every command sent via web interface (**Write Command** on **P1P2 Status** page) or via UDP = write cycle to the Daikin EEPROM. If the daily quota is reached, new commands are dropped. The quota resets at midnight.
 
