@@ -881,9 +881,9 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
                 || (j == 0 && FxRequests[i] >= 0)
                 || (j == 1 && FxRequests[i] != F0THRESHOLD)) continue;
             if (FxRequests[i] < 0) {
-              chunked.print(F(" Another device is connected"));
+              chunked.print(F("Another device is connected"));
             } else if (FxRequests[i] == F0THRESHOLD) {
-              chunked.print(F(" Additional device can be connected"));
+              chunked.print(F("Additional device can be connected"));
             }
             chunked.print(F(" (address 0xF"));
             chunked.print(i, HEX);

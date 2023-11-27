@@ -68,8 +68,8 @@ Here is my HW setup (cheap Arduino Uno clone + W5500 Ethernet shield from Keyest
 You can either:
 - **Download and flash my pre-compiled firmware** from "Releases".
 - **Compile your own firmware**. Download this repository (all *.ino files) and open arduino-altherma-controller.ino in Arduino IDE. If you want, you can check advanced_settings.h for advanced settings (can only be changed in the sketch) and for default factory settings (can be later changed via web interface). Download all required libraries, compile and upload your program to Arduino. The program uses the following external libraries (all are available in Arduino IDE's "library manager"):
- - CircularBuffer (https://github.com/rlogiacco/CircularBuffer)
- - StreamLib (https://github.com/jandrassy/StreamLib)
+  - CircularBuffer (https://github.com/rlogiacco/CircularBuffer)
+  - StreamLib (https://github.com/jandrassy/StreamLib)
 
 Connect your Arduino to ethernet and use your web browser to access the web interface on default IP:  http://192.168.1.254
 
@@ -78,7 +78,7 @@ Connect your Arduino to ethernet and use your web browser to access the web inte
 This controller has a built-in webserver which allows you to configure the controller itself, check basic system info of the controller and the status of its connection to the P1/P2 bus. 
 
   - settings marked \* are only available if ENABLE_DHCP is defined in the sketch
-  - settings marked \*\* are only available if ENABLE_EXTRA_DIAG is defined in the sketch
+  - settings marked \*\* are only available if ENABLE_EXTENDED_WEBUI is defined in the sketch
 
 ## System Info
 
@@ -94,23 +94,23 @@ This controller has a built-in webserver which allows you to configure the contr
 
 <img src="pics/daikin2.png" alt="daikin2" style="zoom:100%;" />
 
-**Controller**. Shows you the status of the P1/P2 connection and allows you to manually connect (or disconnect) the controller. The status can be:
-* **Disabled**. Controller mode has been disabled in **P1P2 Settings**. The controller can not write to the P1/P2 bus but it still passively monitors the P1/P2 bus and sends (most) data from the heat pump via UDP messages.
-* **Disconnected**. The controller is disconnected. The controller passively monitors the P1/P2 bus, reads (most) data from the heat pump and sends them via UDP messages. User can manually connect to the bus.
-* **Connecting...** The controller is in the process of connecting to the P1/P2 bus (to the main Daikin controller).
-* **Connected**. The controller is connected to the P1/P2 bus (to the main Daikin controller). Once connected, the controller can also:
-  - show Altherma model in **Daikin Unit**
-  - periodically request, read (and send via UDP) Altherma counters
-  - control Altherma by sending **Write Command** through the web interface
-  - control Altherma by sending commands via UDP
-* **Not Supported by the Pump**. The controller failed to connect to the P1/P2 bus (to the main Daikin controller) because it is not supported by the heat pump. The controller will not reconnect even if it is in the Auto Connect mode (see P1P2 Settings) but the user can still try to (re)connect manually. The **Not Supported by the Pump** status occurs when:
-  - The heat pump (the main Daikin controller) does not support external controllers.
-  - One external controller (for example Daikin LAN controller) is already connected to the P1/P2 bus and the heat pump does not support second external controller. The number of supported external controllers depends on the model of the Daikin unit.
-  - Two external controllers are already connected. This Arduino controller can not connect to the P1/P2 bus if there are already 2 or more external controllers (regardless of whether the Daikin unit supports more external controllers or not).
+**Daikin Indoor Unit**. Shows the name of your Altherma indoor unit.
 
-**Daikin Unit**. Shows the name of your Altherma indoor unit.
+**Daikin Outdoor Unit**.\*\* Shows the name of your Altherma outdoor unit.
 
-**Date**. Shows internal date and time of the heat pump.
+**External Controllers**. Shows all external controller connected to the P1/P2 bus (incl. their addresses) and provides info whether additional controller is supported by your heat pump. These messages can show up:
+* **No connection to the P1P2 bus**. The controller failed to read any data packets from the P1/P2 bus. Check your connection to the P1/P2 bus.
+* **This device is connected (read only)**. The controller is connected in read only mode. It does not write anything to the P1/P2 bus but it still passively monitors the P1/P2 bus and sends (most) data from the heat pump via UDP messages. If your **Enable Write to P1P2** setting is set to Manually, you can manually enable write mode (if your pump supports additional device on the P1/P2 bus). Read only mode has several limitations:
+  - does not show Altherma model in **Daikin Unit**
+  - can not periodically request, read (and send via UDP) Altherma counters
+  - can not control Altherma by sending **Write Command** through the web interface
+  - can not control Altherma by sending commands via UDP
+* **This device is connected (address 0xF..)**. This Arduino device is connected to the P1/P2 bus for both reading and writing (sending commands). The controller can write to the P1/P2 bus only after it has been allocated an address by the heat pump. This Arduino controller will accept any address provided by the heat pump in the 0xF0 ~ 0xFF range. If your **Enable Write to P1P2** setting is set to Manually, you can manually disable write mode (release the address) and downgrade the connection to read only.
+* **Another device is connected (address 0xF..)**. Another device is connected to the P1/P2 bus (to the main Daikin controller), using address 0xF.. This "another device" can be second Arduino device, commercial controller by Daikin or by third party (Daikin LAN adapter, Daikin Madoka, DCOM LT/MB module, Zennio KLIC-DA KNX interface, Coolmaster, etc.).
+* **Additional device can be connected (address 0xF..)**. Additional device can be connected to the P1/P2 bus. How many devices can be connected (ie. how many addresses are available for external devices) depends on the model of the heat pump. For example, Altherma LT supports 1 device (address 0xF0), Altherma 3 support up to 3 devices (addresses 0xF0, 0xF1 and 0xFF).
+* **Additional device not supported by the pump**. All available addresses have been allocated to external controllers. The heat pump (the main Daikin controller) does not support additional device on the P1/P2 bus.
+
+**Date**. Displays internal date and time of the heat pump.
 
 **Daikin EEPROM Writes**. Every time you send **Write Command** through the web interface or a command via UDP, settings of the main Daikin controller (= controller on your heat pump) change and new values are written to its internal EEPROM. **<ins>Your main Daikin controller's EEPROM has a limited number of writes, so keep an eye on this counter in order to prevent EEPROM wear! It is adviced to do max 7000 writes per year (19 writes/day on average)</ins>**.
 * **Stats since ...**. Date and time since when **Daikin EEPROM Writes** are recorded. If you significantly change the date on the heat pump, reset the stats (so that **Average per Day** is calculated properly).
@@ -177,18 +177,18 @@ This controller has a built-in webserver which allows you to configure the contr
 
 <img src="pics/daikin5.png" alt="daikin5" style="zoom:100%;" />
 
-**Controller (Write to P1P2)**.
-* **Disabled** (safe). The controller is permanently disconnected from the P1/P2 bus, manual connection is not possible. The controller can not write to the P1/P2 bus but it still passively monitors the P1/P2 bus and sends (most) data from the heat pump via UDP. Disable the controller in case you experience persistent connection failures and/or write errors.
-* **Manual Connect** (default). Same as disabled, but manual connection to the P1/P2 bus is possible (see the P1P2 Status page). The controller does not reconnect to the P1/P2 bus after reboot or if the connection is interrupted (see **Connection Timeout**).
-* **Auto Connect** (advanced). The controller tries to (re)connect to the P1/P2 bus (to the main Daikin controller) after (re)start, or if the connection is interrupted (see **Connection Timeout**). No attempts to reconnect are made if the controller is **Not Supported by the Pump** (see the P1P2 Status page). Enable **Auto Connect** at your own risk and only after you have successfuly connected manually! **Check the P1P2 Status page for P1/P2 errors and monitor Daikin EEPROM Writes in order to minimize Daikin controller EEPROM wear!**
+**Enable Write to P1P2**.
+* **Manually** (default). User can manually enable / disable writing to the P1/P2 bus (see the **P1P2 Status** page). After reboot or if connection is interrupted (see **Connection Timeout**), connection is downgraded to read only.
+* **Automatically**. The controller tries to (re)enable writing to the P1/P2 bus (to the main Daikin controller) after (re)start, or if the connection is interrupted (see **Connection Timeout**). Use **Automatically** at your own risk and only after you have successfuly enabled write manually! **Check the P1P2 Status page for P1/P2 errors and monitor Daikin EEPROM Writes in order to minimize Daikin controller EEPROM wear!**
 
-**EEPROM Write Quota**. Daily quota for writes to the EEPROM of the main Daikin controller. Every command sent via web interface (**Write Command** on **P1P2 Status** page) or via UDP = write cycle to the Daikin EEPROM. If the daily quota is reached, the command is dropped.
+**EEPROM Write Quota**. Daily quota for writes to the EEPROM of the main Daikin controller. Every command sent via web interface (**Write Command** on **P1P2 Status** page) or via UDP = write cycle to the Daikin EEPROM. If the daily quota is reached, new commands are dropped. The quota resets at midnight.
 
-**Connection Timeout**.
-* In **Manual Connect** mode, an attempt to connect to the P1/P2 bus (to the main Daikin controller) fails if connection is not established within the **Connection Timeout**. After timeout, the controller will show **Disconnected** state on the Status Page. Also, the controller disconnects from the P1/P2 bus if regular communication with the heat pump (with the main Daikin controller) is interrupted for a period longer than the **Connection Timeout**.
-* In **Auto Connect** mode, the controller will transition to **Connecting...** state if regular communication with the heat pump (with the main Daikin controller) is interrupted for a period longer than the **Connection Timeout**.
+**Connection Timeout**. Timeout for reading data packets and for enabling writing to the P1/P2 bus.
+* If no data packet is received after timeout, **No connection to the P1P2 bus** message is displayed in the **P1P2 Status** page.
+* In **Manual Connect** mode, user initiated attempt to enable writing to the P1/P2 bus (to the main Daikin controller) fails if the controller does not receive an address within the **Connection Timeout**.
+* During operation, connection can be downgraded to read only if the controller loses its address for a period longer than the **Connection Timeout** (for example if the address is allocated by the heat pump to another external controller).
 
-**Target Temperature Hysteresis**. Hysteresis for writing target temperature or target setpoint commands (packet type 0x36). Applies for write commands received via UDP. The purpose is to minimize Daikin controller EEPROM wear.
+**Target Temperature Hysteresis**. Hysteresis for writing target temperature or target setpoint commands (packet type 0x36) in 1/10 °C. Applies for write commands received via UDP. The purpose is to minimize Daikin controller EEPROM wear.
 
 ## Packet Filter
 
@@ -248,7 +248,7 @@ Just drag and drop individual inputs into your Loxone plan and you are ready to 
 
 ### 4. Virtual Output
 
-Virtual Output will only work if the Arduino controller is connected to the P1/P2 bus (can write to the bus). Moreover, writeable command are device-specific. The Virtual Output Commands provided in the template may (with no guarantee) work only with **Daikin Altherma LT (EHVH(H/X/Z))** heat pumps. **<ins>Use at your own risk!!!</ins>**
+Virtual Output will only work if the Arduino controller is fully connected to the P1/P2 bus (can write to the bus). Moreover, writeable command are device-specific. The Virtual Output Commands provided in the template may (with no guarantee) work only with **Daikin Altherma LT (EHVH(H/X/Z))** heat pumps. **<ins>Use at your own risk!!!</ins>**
 
 Download the Loxone template **[VO_Daikin Altherma LT.xml](https://github.com/budulinek/arduino-altherma-controller/blob/main/VO_Daikin%20Altherma%20LT.xml)**. Open Loxone Config and in the periphery tree mark `Virtual Outputs`, then go to Device Templates > Import Template ... in the menu bar. Find the template you have downloaded and import the template. You should see Daikin Altherma LT with a number of `Virtual Output Commands`. Change the IP address or UDP port if needed:
 
