@@ -55,13 +55,10 @@ const byte PACKET_TYPE_CONTROL[2] = { 0x30, 0x3E };  // First and last control p
 const byte PACKET_TYPE_INDOOR_NAME = 0xB1;           // Heat pump indoorname packet type
 const byte PACKET_TYPE_OUTDOOR_NAME = 0xA1;          // Heat pump outdoor name packet type
 const byte PACKET_TYPE_COUNTER = 0xB8;               // Counters packet type
-const byte PACKET_TYPE_RESTART = 0x12;
-const byte RESTART_PACKET_PAYLOAD_BYTE = 12;
-const byte RESTART_PACKET_BYTE = 0x20;
-const byte F030DELAY = 100;  // Time delay for in ms auxiliary controller simulation, should be larger than any response of other auxiliary controllers (which is typically 25-80 ms)
-const byte F03XDELAY = 50;   // Time delay for in ms auxiliary controller simulation, should preferably be a bit larger than any regular response from auxiliary controllers (which is typically 25 ms)
-const byte F0THRESHOLD = 5;  // Number of 00Fx30 messages to remain unanswered before we feel safe to act as auxiliary controller
-                             // Each message takes ~770ms so we can use F0THRESHOLD to set minimum and default connectTimeout
+const byte F030DELAY = 100;                          // Time delay for in ms auxiliary controller simulation, should be larger than any response of other auxiliary controllers (which is typically 25-80 ms)
+const byte F03XDELAY = 50;                           // Time delay for in ms auxiliary controller simulation, should preferably be a bit larger than any regular response from auxiliary controllers (which is typically 25 ms)
+const byte F0THRESHOLD = 5;                          // Number of 00Fx30 messages to remain unanswered before we feel safe to act as auxiliary controller
+                                                     // Each message takes ~770ms so we can use F0THRESHOLD to set minimum and default connectTimeout
 
 const byte DATA_PACKETS_CNT = PACKET_TYPE_DATA[LAST] - PACKET_TYPE_DATA[FIRST] + 1;
 const byte CTRL_PACKETS_CNT = PACKET_TYPE_CONTROL[LAST] - PACKET_TYPE_CONTROL[FIRST] + 1;
@@ -82,7 +79,6 @@ const byte WB_SIZE = 32;          // P1/P2 write buffer size for writing to P1P2
 const byte RB_SIZE = 33;          // P1/P2 read buffer size to store raw data and error codes read from P1P2bus; 1 extra for reading back CRC byte; 24 might be enough
 const uint16_t INIT_SDTO = 2500;  // P1/P2 write time-out delay (ms)
 
-// set CTRL adapter ID; if not used, installer mode becomes unavailable on main controller
 const byte CTRL_ID[] = { 0xB4, 0x10 };  // LAN adapter ID in 0x31 payload bytes 7 and 8
 
 const byte MAC_START[3] = { 0x90, 0xA2, 0xDA };  // MAC range for Gheo SA

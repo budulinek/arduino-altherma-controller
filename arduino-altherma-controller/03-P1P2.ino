@@ -31,6 +31,7 @@ void recvBus() {
       // act as auxiliary controller:
       if (P1P2Serial.writeready() && (controllerAddr > CONNECTING) && (RB[0] == 0x00) && (RB[1] == controllerAddr)) {
 
+        connectionTimer.sleep(data.config.connectTimeout * 1000UL);
         //if 1) the main controller sends request to our auxiliary controller 2) we are write ready => always respond
         processWrite(nread);
       }
@@ -210,8 +211,8 @@ void processWrite(uint16_t n) {
     } else {
       // TODO error
     }
-    updateEeprom();
-    deleteCmd();  // delete cmd in Queue
+    updateEeprom();  // TODO is it really needed? Writes data to Arduino EEPROM whenever a command is written to the P1/P2 bus (& to the Daikin EEPROM)
+    deleteCmd();     // delete cmd in Queue
   } else {
     switch (RB[2]) {
       case PACKET_TYPE_HANDSHAKE:  // 0x30
@@ -265,7 +266,6 @@ void processWrite(uint16_t n) {
         }
         break;
       case 0x31:  // in: 15 byte; out: 15 byte; out pattern is copy of in pattern except for 2 bytes RB[7] RB[8]; function partly date/time, partly unknown
-        connectionTimer.sleep(data.config.connectTimeout * 1000UL);
         // RB[7] RB[8] seem to identify the auxiliary controller type;
         // Do pretend to be a LAN adapter (even though this may trigger "data not in sync" upon restart?)
         // If we don't set address, installer mode in main thermostat may become inaccessible
