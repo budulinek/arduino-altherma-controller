@@ -218,7 +218,9 @@ void processWrite(uint16_t n) {
       case PACKET_TYPE_HANDSHAKE:  // 0x30
         {
           d = F030DELAY;
-          for (byte i = 3; i < n; i++) WB[i] = 0x00;
+          WB[3] = RB[3];                              // trigger packet 0x31 if indicated in 00Fx30 request
+          WB[4] = RB[4];                              // trigger packet 0x32 if indicated in 00Fx30 request
+          for (byte i = 5; i < n; i++) WB[i] = 0x00;  // default response for the rest of the packet
           // 00F030 request message received, we will:
           // - reply with 40F030 response
           // - hijack every 2nd time slot to send request counters
