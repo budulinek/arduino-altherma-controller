@@ -25,7 +25,7 @@ void recvUdp() {
 /**************************************************************************/
 /*!
   @brief Checks P1P2 command, checks availability of queue, stores commands
-  into queue or an error.
+  into queue or records an error.
   @param command Command received via UDP or web UI.
   @param cmdLen Command length.
 */
