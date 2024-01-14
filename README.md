@@ -117,7 +117,7 @@ This controller has a built-in webserver which allows you to configure the contr
 * **Total Commands**. Total number of writes made by this Arduino controller since the date and time recorded in **Stats since ...**.
 * **Daily Average**. Daily average EEPROM writes, should be bellow 19. Calculated from internal date of the heat pump, so if you change the date in heat pump settings, it is recommended to reset the Daikin EEPROM Writes counter.
 * **Yesterday**. Number of writes made yesterday, updated at midnight. Should not significantly exceed average writes per day.
-* **Today**. Number of writes made today / out of daily **EEPROM Write Quota**. If you reach the quota and you really need more, you can temporarily (!) increase it in the **P1P2 Settings**
+* **Today**. Number of writes made today / out of daily **EEPROM Write Quota**. If you reach the quota and you still need to send a P1/P2 write command, you can  **Clear Quota**
 
 **Write Command**. You can send a P1/P2 write command directly from web interface, for testing or reverse-engineering P1/P2 write commands. The format of the write command send via web interface is identical to the command sent via UDP:
 * **Packet Type**. The first byte is the packet type. Only supported packet types are listed in the drop-down menu.

@@ -839,7 +839,8 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
         chunked.print(data.eepromDaikin.today);
         chunked.print(F(" / "));
         chunked.print(data.config.writeQuota);
-        chunked.print(F(" Today (total / quota)"));
+        chunked.print(F(" Today (total / quota) "));
+        tagButton(chunked, F("Clear Quota"), ACT_CLEAR_QUOTA, true);
       }
       break;
     case JSON_CONTROLLER:
@@ -861,7 +862,7 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
           chunked.print(controllerAddr, HEX);
           chunked.print(F(") "));
           if (data.config.controllerMode == CONTROL_MANUAL) {
-            tagButton(chunked, F("Disable write"), ACT_DISCONNECT, true);
+            tagButton(chunked, F("Disable Write"), ACT_DISCONNECT, true);
           }
         } else {
           chunked.print(F("(read only) "));
@@ -869,26 +870,22 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
             if (controllerAddr == CONNECTING) {
               tagButton(chunked, F("Connecting"), ACT_CONNECT, false);
             } else {
-              tagButton(chunked, F("Enable write"), ACT_CONNECT, availableSlot);
+              tagButton(chunked, F("Enable Write"), ACT_CONNECT, availableSlot);
             }
           }
         }
         chunked.print(F("<br>"));
-        for (byte j = 0; j < 2; j++) {  // list "Other device" in loop 0 and "Add. device can be connected" in loop 1
-          for (byte i = 0; i < 16; i++) {
-            if ((FxRequests[i] == 0)               // Skip address Fx if no 00Fx30 request was made (address Fx not supported by the pump)
-                || ((0xF0 | i) == controllerAddr)  // Skip address Fx if this device uses address Fx
-                || (j == 0 && FxRequests[i] >= 0)
-                || (j == 1 && FxRequests[i] != F0THRESHOLD)) continue;
-            if (FxRequests[i] < 0) {
-              chunked.print(F("Another device is connected"));
-            } else if (FxRequests[i] == F0THRESHOLD) {
-              chunked.print(F("Additional device can be connected"));
-            }
-            chunked.print(F(" (address 0xF"));
-            chunked.print(i, HEX);
-            chunked.print(F(")<br>"));
+        for (byte i = 0; i < 16; i++) {
+          if ((FxRequests[i] == 0)                          // Skip address Fx if no 00Fx30 request was made (address Fx not supported by the pump)
+              || ((0xF0 | i) == controllerAddr)) continue;  // Skip address Fx if this device uses address Fx
+          if (FxRequests[i] < 0) {
+            chunked.print(F("Another device is connected"));
+          } else if (FxRequests[i] == F0THRESHOLD) {
+            chunked.print(F("Additional device can be connected"));
           }
+          chunked.print(F(" (address 0xF"));
+          chunked.print(i, HEX);
+          chunked.print(F(")<br>"));
         }
         if (!availableSlot) {
           chunked.print(F("Additional device not supported by the pump"));
