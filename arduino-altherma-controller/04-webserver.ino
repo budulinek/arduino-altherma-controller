@@ -12,6 +12,7 @@ enum action_type : byte {
   ACT_RESET_STATS,   // Reset P1P2 Read Statistics
   ACT_CONNECT,       // Connect Controller
   ACT_DISCONNECT,    // Disconnect Controller
+  ACT_CLEAR_QUOTA,   // Clear Daikin EEPROM Writes Daily Quota
   ACT_WEB            // Restart webserver
 };
 enum action_type action;
@@ -357,6 +358,9 @@ void processPost(EthernetClient &client) {
       break;
     case ACT_DISCONNECT:
       controllerAddr = DISCONNECTED;
+      break;
+    case ACT_CLEAR_QUOTA:
+      data.eepromDaikin.today = 0;
       break;
     default:
       break;
