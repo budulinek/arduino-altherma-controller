@@ -8,7 +8,7 @@
   v1.0 2023-04-18 Major upgrade: web interface, store settings in EEPROM, P1P2 error counters
   v2.0 2023-08-25 Manual MAC, Daikin EEPROM write daily quota, Simplify Arduino EEPROM read / write, Tools page
   v2.1 2023-09-17 Improve advanced settings, disable DHCP renewal fallback
-  v3.0 2024-XX-XX Function comments. Remove "Disabled" Controller mode (only Manual; Auto),
+  v3.0 2024-02-02 Function comments. Remove "Disabled" Controller mode (only Manual; Auto),
                   improved automatic connection to the P1P2 bus, connect to any peripheral address
                   between 0xF0 to 0xFF (depends on Altherma model), show other controllers and available addresses.
 */
