@@ -11,15 +11,16 @@
   v3.0 2024-02-02 Function comments. Remove "Disabled" Controller mode (only Manual; Auto),
                   improved automatic connection to the P1P2 bus, connect to any peripheral address
                   between 0xF0 to 0xFF (depends on Altherma model), show other controllers and available addresses.
+  v3.1 2024-XX-XX CSS improvement
 */
 
-const byte VERSION[] = { 3, 0 };
+const byte VERSION[] = { 3, 1 };
 
 #include <SPI.h>
 #include <Ethernet.h>
 #include <EthernetUdp.h>
 #include <utility/w5100.h>
-#include <CircularBuffer.h>  // CircularBuffer https://github.com/rlogiacco/CircularBuffer
+#include <CircularBuffer.hpp>  // CircularBuffer https://github.com/rlogiacco/CircularBuffer
 #include <EEPROM.h>
 #include <StreamLib.h>  // StreamLib https://github.com/jandrassy/StreamLib
 // #include <P1P2Serial.h>  // P1P2Serial https://github.com/Arnold-n/P1P2Serial

@@ -66,8 +66,10 @@ void sendPage(EthernetClient &client, byte reqPage) {
                   CSS Classes
                     w - wrapper (includes m + c)
                     m  - navigation menu (left)
-                    c - content of a page
-                    r - row inside a content
+                    c - wrapper for the content of a page (incl. smaller header)
+                    d - content of the page
+                    q - row inside a content (top aligned)
+                    r - row inside a content (center-aligned)
                     i - short input (byte or IP address octet)
                     n - input type=number
                     s - select input with numbers
@@ -75,22 +77,25 @@ void sendPage(EthernetClient &client, byte reqPage) {
                   CSS Ids
                     o - checkbox which disables other checkboxes and inputs
                   */
-                  "body,.m{padding:1px;margin:0;font-family:sans-serif}"
+                  "*{box-sizing:border-box}"
+                  "body{padding:1px;margin:0;font-family:sans-serif;height:100vh}"
+                  "body,.w,.c,.q{display:flex}"
+                  "body,.c{flex-flow:column}"
+                  ".w{flex-grow:1;min-height:0}"
+                  ".m{flex:0 0 20vw;padding:1px}"
+                  ".c{flex:1}"
+                  ".d{overflow:auto;padding:15px}"
+                  ".q{padding:1px}"
+                  ".r{align-items:center}"
                   "h1,h4{padding:10px}"
                   "h1,.m,h4{background:#0067AC;margin:1px}"
-                  ".m,.c{height:calc(100vh - 71px)}"
-                  ".m{min-width:20%}"
-                  ".c{flex-grow:1;overflow-y:auto}"
-                  ".w,.r{display:flex}"
                   "a,h1,h4{color:white;text-decoration:none}"
-                  ".c h4{padding-left:30%;margin-bottom:20px}"
-                  ".r{margin:4px}"
+                  ".c h4{padding-left:30%}"
                   "label{width:30%;text-align:right;margin-right:2px}"
-                  "input,button,select{margin-top:-2px}"  // improve vertical allignment of input, button and select
                   ".s{text-align:right}"
                   ".s>option{direction:rtl}"
-                  ".i{text-align:center;width:3ch}"
-                  ".n{width:8ch}"
+                  ".i{text-align:center;width:4ch}"
+                  ".n{width:10ch}"
                   "</style>"
                   "</head>"
                   "<body onload=g(document.getElementById('o').checked)>"
@@ -116,7 +121,7 @@ void sendPage(EthernetClient &client, byte reqPage) {
 
   // Left Menu
   for (byte i = 1; i < PAGE_WAIT; i++) {  // PAGE_WAIT is the last item in enum
-    chunked.print(F("<h4 "));
+    chunked.print(F("<h4"));
     if ((i) == reqPage) {
       chunked.print(F(" style=background-color:#FF6600"));
     }
@@ -131,6 +136,7 @@ void sendPage(EthernetClient &client, byte reqPage) {
                   "<h4>"));
   stringPageName(chunked, reqPage);
   chunked.print(F("</h4>"
+                  "<div class=d>"
                   "<form method=post>"));
 
   //   PLACE FUNCTIONS PROVIDING CONTENT HERE
@@ -165,7 +171,8 @@ void sendPage(EthernetClient &client, byte reqPage) {
   if (reqPage == PAGE_IP || reqPage == PAGE_TCP || reqPage == PAGE_P1P2 || reqPage == PAGE_FILTER) {
     chunked.print(F("<p><div class=r><label><input type=submit value='Save & Apply'></label><input type=reset value=Cancel></div>"));
   }
-  chunked.print(F("</form>"));
+  chunked.print(F("</form>"
+                  "</div>"));
   tagDivClose(chunked);  // close tags <div class=c> <div class=w>
   chunked.end();         // closing tags not required </body></html>
 }
@@ -254,7 +261,7 @@ void contentStatus(ChunkedPrint &chunked) {
   tagSpan(chunked, JSON_DAIKIN_OUTDOOR);
   tagDivClose(chunked);
 #endif /* ENABLE_EXTENDED_WEBUI */
-  tagLabelDiv(chunked, F("External Controllers"));
+  tagLabelDiv(chunked, F("External Controllers"), true);
   tagSpan(chunked, JSON_CONTROLLER);
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Date"));
@@ -263,6 +270,9 @@ void contentStatus(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Daikin EEPROM Writes"));
   tagButton(chunked, F("Reset"), ACT_RESET_EEPROM, true);
   chunked.print(F(" Stats since "));
+  tagSpan(chunked, JSON_DAIKIN_EEPROM_DATE);
+  tagDivClose(chunked);
+  tagLabelDiv(chunked, 0);
   tagSpan(chunked, JSON_DAIKIN_EEPROM);
   tagDivClose(chunked);
   chunked.print(F("</form><form method=post>"));
@@ -299,6 +309,9 @@ void contentStatus(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("P1P2 Packets"));
   tagButton(chunked, F("Reset"), ACT_RESET_STATS, true);
   chunked.print(F(" Stats since "));
+  tagSpan(chunked, JSON_P1P2_STATS_DATE);
+  tagDivClose(chunked);
+  tagLabelDiv(chunked, 0);
   tagSpan(chunked, JSON_P1P2_STATS);
   tagDivClose(chunked);
 #ifdef ENABLE_EXTENDED_WEBUI
@@ -494,7 +507,7 @@ void contentWait(ChunkedPrint &chunked) {
 /**************************************************************************/
 void tagRowPacket(ChunkedPrint &chunked, const byte packetType) {
   if (getPacketStatus(packetType, PACKET_SEEN) == true) {
-    chunked.print(F("<div class=r>"
+    chunked.print(F("<div class=\"r q\">"
                     "<label>Type 0x"));
     chunked.print(hex(packetType));
     chunked.print(F(":</label>"
@@ -644,11 +657,16 @@ void tagInputHex(ChunkedPrint &chunked, const byte name, const bool required, co
 
   @param chunked Chunked buffer
   @param label Label string
+  @param top Align to top
 */
 /**************************************************************************/
 void tagLabelDiv(ChunkedPrint &chunked, const __FlashStringHelper *label) {
-  chunked.print(F("<div class=r>"));
-  chunked.print(F("<label> "));
+  tagLabelDiv(chunked, label, false);
+}
+void tagLabelDiv(ChunkedPrint &chunked, const __FlashStringHelper *label, bool top) {
+  chunked.print(F("<div class=\"q"));
+  if (!top) chunked.print(F(" r"));
+  chunked.print(F("\"><label> "));
   if (label) {
     chunked.print(label);
     chunked.print(F(":"));
@@ -686,7 +704,7 @@ void tagButton(ChunkedPrint &chunked, const __FlashStringHelper *flashString, by
 /**************************************************************************/
 void tagDivClose(ChunkedPrint &chunked) {
   chunked.print(F("</div>"
-                  "</div>"));  // <div class=r>
+                  "</div>"));  // <div class=q>
 }
 
 /**************************************************************************/
@@ -822,10 +840,13 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
         stringDate(chunked, date);
       }
       break;
-    case JSON_DAIKIN_EEPROM:
+    case JSON_DAIKIN_EEPROM_DATE:
       {
         stringDate(chunked, data.eepromDaikin.date);
-        chunked.print(F("<br>"));
+      }
+      break;
+    case JSON_DAIKIN_EEPROM:
+      {
         chunked.print(data.eepromDaikin.total);
         chunked.print(F(" Total Commands<br>"));
         if (date[5] != 0) {  // day can not be zero
@@ -901,10 +922,13 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
         chunked.print(F(">"));
       }
       break;
-    case JSON_P1P2_STATS:
+    case JSON_P1P2_STATS_DATE:
       {
         stringDate(chunked, data.statsDate);
-        chunked.print(F("<br>"));
+      }
+      break;
+    case JSON_P1P2_STATS:
+      {
         for (byte i = 0; i < P1P2_LAST; i++) {
           chunked.print(data.p1p2Cnt[i]);
           switch (i) {

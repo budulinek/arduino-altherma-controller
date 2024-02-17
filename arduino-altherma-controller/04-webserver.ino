@@ -89,16 +89,18 @@ enum post_key : byte {
 
 // Keys for JSON elements, used in: 1) JSON documents, 2) ID of span tags, 3) Javascript.
 enum JSON_type : byte {
-  JSON_RUNTIME,         // Runtime
-  JSON_DAIKIN_INDOOR,   // Daikin Indoor Unit
-  JSON_DAIKIN_OUTDOOR,  // Daikin Outdoor Unit
-  JSON_DATE,            // date and time
-  JSON_DAIKIN_EEPROM,   // EEPROM Health
-  JSON_WRITE_P1P2,      // write P1P2 button
-  JSON_P1P2_STATS,      // Multiple P1P2 Read Statistics
-  JSON_UDP_STATS,       // Multiple P1P2 Write Statistics
-  JSON_CONTROLLER,      // Controller Mode
-  JSON_LAST,            // Must be the very last element in this array
+  JSON_RUNTIME,             // Runtime
+  JSON_DAIKIN_INDOOR,       // Daikin Indoor Unit
+  JSON_DAIKIN_OUTDOOR,      // Daikin Outdoor Unit
+  JSON_DATE,                // date and time
+  JSON_DAIKIN_EEPROM_DATE,  // EEPROM Stats since
+  JSON_DAIKIN_EEPROM,       // EEPROM Health
+  JSON_WRITE_P1P2,          // write P1P2 button
+  JSON_P1P2_STATS_DATE,     // P1P2 Stats since
+  JSON_P1P2_STATS,          // Multiple P1P2 Read Statistics
+  JSON_UDP_STATS,           // Multiple P1P2 Write Statistics
+  JSON_CONTROLLER,          // Controller Mode
+  JSON_LAST,                // Must be the very last element in this array
 };
 
 /**************************************************************************/
