@@ -11,10 +11,10 @@
   v3.0 2024-02-02 Function comments. Remove "Disabled" Controller mode (only Manual; Auto),
                   improved automatic connection to the P1P2 bus, connect to any peripheral address
                   between 0xF0 to 0xFF (depends on Altherma model), show other controllers and available addresses.
-  v3.1 2024-XX-XX CSS improvement
+  v4.0 2025-XX-XX CSS improvement, code optimization, simplify P1P2 Status page
 */
 
-const byte VERSION[] = { 3, 1 };
+const byte VERSION[] = { 4, 0 };
 
 #include <SPI.h>
 #include <Ethernet.h>
@@ -99,18 +99,11 @@ const config_t DEFAULT_CONFIG = {
 };
 
 enum p1p2_Error : byte {
-  P1P2_READ_OK,        // Bus Read OK
-  P1P2_WRITE_OK,       // Bus Write OK
-  P1P2_WRITE_QUOTA,    // EEPROM Write Quota Reached
-  P1P2_WRITE_QUEUE,    // Write Queue Full
-  P1P2_WRITE_INVALID,  // Write Command Invalid
-  P1P2_ERROR_PE,       // Parity Read Error
-  P1P2_LARGE,          // Read Too Long
-  P1P2_ERROR_SB,       // Start Bit Write Error
-  P1P2_ERROR_BE_BC,    // Write Bus Collission
-  P1P2_ERROR_OR,       // Buffer Overrun
-  P1P2_ERROR_CRC,      // CRC Error
-  P1P2_LAST            // Number of status flags in this enum. Must be the last element within this enum!!
+  P1P2_READ_OK,      // Read OK
+  P1P2_READ_ERROR,   // Read Error
+  P1P2_WRITE_OK,     // Write OK
+  P1P2_WRITE_ERROR,  // Write Error
+  P1P2_LAST          // Number of status flags in this enum. Must be the last element within this enum!!
 };
 
 enum udp_Error : byte {
@@ -120,10 +113,12 @@ enum udp_Error : byte {
 };
 
 typedef struct {
-  uint32_t total;      // Number of Daikin EEPROM write cycles
+  uint32_t total;      // Number of commands written to Daikin EEPROM
   byte date[6];        // Time and date when Daikin EEPROM write cycles counter started
-  uint16_t today;      // Number of Daikin EEPROM write cycles today
-  uint16_t yesterday;  // Number of Daikin EEPROM write cycles yesterday
+  uint32_t dropped;    // Number of commands dropped
+  uint32_t invalid;    // Number of commands invalid
+  uint16_t today;      // Number of commands written today
+  uint16_t yesterday;  // Number of commands written yesterday
 } eeprom_t;
 
 typedef struct {
@@ -292,6 +287,6 @@ void loop() {
   maintainUptime();  // maintain uptime in case of millis() overflow
 #endif               /* ENABLE_EXTENDED_WEBUI */
 #ifdef ENABLE_DHCP
-  maintainDhcp();
+  Ethernet.maintain();
 #endif /* ENABLE_DHCP */
 }

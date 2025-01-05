@@ -170,7 +170,7 @@ void sendPage(EthernetClient &client, byte reqPage) {
       break;
   }
   if (reqPage == PAGE_IP || reqPage == PAGE_TCP || reqPage == PAGE_P1P2 || reqPage == PAGE_FILTER) {
-    chunked.print(F("<p><div class=r><label><input type=submit value='Save & Apply'></label><input type=reset value=Cancel></div>"));
+    chunked.print(F("<p><div class=q><label><input type=submit value='Save & Apply'></label><input type=reset value=Cancel></div>"));
   }
   chunked.print(F("</form>"
                   "</main>"));
@@ -268,14 +268,6 @@ void contentStatus(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Date"));
   tagSpan(chunked, JSON_DATE);
   tagDivClose(chunked);
-  tagLabelDiv(chunked, F("Daikin EEPROM Writes"));
-  tagButton(chunked, F("Reset"), ACT_RESET_EEPROM, true);
-  chunked.print(F(" Stats since "));
-  tagSpan(chunked, JSON_DAIKIN_EEPROM_DATE);
-  tagDivClose(chunked);
-  tagLabelDiv(chunked, 0);
-  tagSpan(chunked, JSON_DAIKIN_EEPROM);
-  tagDivClose(chunked);
   chunked.print(F("</form><form method=post>"));
   tagLabelDiv(chunked, F("Write Command"));
   chunked.print(F("Packet Type "
@@ -302,6 +294,14 @@ void contentStatus(ChunkedPrint &chunked) {
   tagSpan(chunked, JSON_WRITE_P1P2);
   tagDivClose(chunked);
   chunked.print(F("</form><form method=post>"));
+  tagLabelDiv(chunked, F("Daikin EEPROM Writes"));
+  tagButton(chunked, F("Reset"), ACT_RESET_EEPROM, true);
+  chunked.print(F(" Stats since "));
+  tagSpan(chunked, JSON_DAIKIN_EEPROM_DATE);
+  tagDivClose(chunked);
+  tagLabelDiv(chunked, 0);
+  tagSpan(chunked, JSON_DAIKIN_EEPROM);
+  tagDivClose(chunked);
 #ifdef ENABLE_EXTENDED_WEBUI
   tagLabelDiv(chunked, F("Run Time"));
   tagSpan(chunked, JSON_RUNTIME);
@@ -422,8 +422,7 @@ void contentP1P2(ChunkedPrint &chunked) {
   tagInputNumber(chunked, POST_QUOTA, 0, 100, data.config.writeQuota, F("writes per day"));
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Target Temperature Hysteresis"));
-  tagInputNumber(chunked, POST_HYSTERESIS, 0, 100, data.config.hysteresis, F("&#8530;\xB0"
-                                                                             "C"));
+  tagInputNumber(chunked, POST_HYSTERESIS, 0, 100, data.config.hysteresis, F("⅒°C"));
   tagDivClose(chunked);
 }
 
@@ -849,7 +848,11 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
     case JSON_DAIKIN_EEPROM:
       {
         chunked.print(data.eepromDaikin.total);
-        chunked.print(F(" Total Commands<br>"));
+        chunked.print(F(" Command OK<br>"));
+        chunked.print(data.eepromDaikin.dropped);
+        chunked.print(F(" Dropped<br>"));
+        chunked.print(data.eepromDaikin.invalid);
+        chunked.print(F(" Invalid<br>"));
         if (date[5] != 0) {  // day can not be zero
           chunked.print((uint16_t)(data.eepromDaikin.total / (days(date) - days(data.eepromDaikin.date) + 1)));
         } else {
@@ -859,9 +862,9 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
         chunked.print(data.eepromDaikin.yesterday);
         chunked.print(F(" Yesterday<br>"));
         chunked.print(data.eepromDaikin.today);
-        chunked.print(F(" / "));
+        chunked.print(F(" out of "));
         chunked.print(data.config.writeQuota);
-        chunked.print(F(" Today (total / quota) "));
+        chunked.print(F(" Today "));
         tagButton(chunked, F("Clear Quota"), ACT_CLEAR_QUOTA, true);
       }
       break;
@@ -930,48 +933,36 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
       break;
     case JSON_P1P2_STATS:
       {
-        for (byte i = 0; i < P1P2_LAST; i++) {
-          chunked.print(data.p1p2Cnt[i]);
-          switch (i) {
-            case P1P2_READ_OK:
-              chunked.print(F(" Bus Read OK"));
-              break;
-            case P1P2_WRITE_OK:
-              chunked.print(F(" Bus Write OK"));
-              break;
-            case P1P2_WRITE_QUOTA:
-              chunked.print(F(" EEPROM Write Quota Reached"));
-              break;
-            case P1P2_WRITE_QUEUE:
-              chunked.print(F(" Write Command Queue Full"));
-              break;
-            case P1P2_WRITE_INVALID:
-              chunked.print(F(" Write Command Invalid"));
-              break;
-            case P1P2_ERROR_PE:
-              chunked.print(F(" Parity Read"));
-              break;
-            case P1P2_LARGE:
-              chunked.print(F(" Too Long Read"));
-              break;
-            case P1P2_ERROR_SB:
-              chunked.print(F(" Start Bit Write"));
-              break;
-            case P1P2_ERROR_BE_BC:
-              chunked.print(F(" Bus Collission Write"));
-              break;
-            case P1P2_ERROR_OR:
-              chunked.print(F(" Buffer Overrun"));
-              break;
-            case P1P2_ERROR_CRC:
-              chunked.print(F(" CRC"));
-              break;
-            default:
-              break;
-          }
-          if (i >= P1P2_ERROR_PE) chunked.print(F(" Error"));
-          chunked.print(F("<br>"));
-        }
+        chunked.print(data.p1p2Cnt[P1P2_READ_OK]);
+        chunked.print(F(" Read OK<br>"));
+        chunked.print(data.p1p2Cnt[P1P2_READ_ERROR]);
+        chunked.print(F(" Error<br>"));
+        chunked.print(data.p1p2Cnt[P1P2_WRITE_OK]);
+        chunked.print(F(" Write OK<br>"));
+        chunked.print(data.p1p2Cnt[P1P2_WRITE_ERROR]);
+        chunked.print(F(" Error"));
+
+
+        // for (byte i = 0; i < P1P2_LAST; i++) {
+        //   chunked.print(data.p1p2Cnt[i]);
+        //   switch (i) {
+        //     case P1P2_READ_OK:
+        //       chunked.print(F(" Read OK"));
+        //       break;
+        //     case P1P2_READ_ERROR:
+        //       chunked.print(F(" Read Error"));
+        //       break;
+        //     case P1P2_WRITE_OK:
+        //       chunked.print(F(" Write OK"));
+        //       break;
+        //     case P1P2_WRITE_ERROR:
+        //       chunked.print(F(" Write Error"));
+        //       break;
+        //     default:
+        //       break;
+        //   }
+        //   chunked.print(F("<br>"));
+        // }
       }
       break;
     default:

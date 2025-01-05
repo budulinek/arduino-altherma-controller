@@ -15,7 +15,7 @@ void recvBus() {
     uint16_t nread = P1P2Serial.readpacket(RB, delta, EB, RB_SIZE, CRC_GEN, CRC_FEED);
     if (nread > RB_SIZE) {
       //  Received packet longer than RB_SIZE
-      data.p1p2Cnt[P1P2_LARGE]++;
+      data.p1p2Cnt[P1P2_READ_ERROR]++;
       nread = RB_SIZE;
       readError = 0xFF;
     }
@@ -143,26 +143,15 @@ void processErrors(uint16_t nread) {
   bool packetError[P1P2_LAST];
   memset(packetError, 0, sizeof(packetError));
   for (uint16_t i = 0; i < nread; i++) {
-    if ((EB[i] & ERROR_SB)) {
-      // collision suspicion due to data verification error in reading back written data
-      packetError[P1P2_ERROR_SB] = true;
+    if ((EB[i] & ERROR_SB)        // collision suspicion due to data verification error in reading back written data
+        || (EB[i] & ERROR_BE)     // collision suspicion due to data verification error in reading back written data
+        || (EB[i] & ERROR_BC)) {  // collision suspicion due to 0 during 2nd half bit signal read back
+      packetError[P1P2_WRITE_ERROR] = true;
     }
-    if ((EB[i] & ERROR_BE) || (EB[i] & ERROR_BC)) {  // or BE3 (duplicate code)
-      // collision suspicion due to data verification error in reading back written data
-      // collision suspicion due to 0 during 2nd half bit signal read back
-      packetError[P1P2_ERROR_BE_BC] = true;
-    }
-    if ((EB[i] & ERROR_PE)) {
-      // parity error detected
-      packetError[P1P2_ERROR_PE] = true;
-    }
-    if ((EB[i] & ERROR_OR)) {
-      // buffer overrun detected (overrun is after, not before, the read byte)
-      packetError[P1P2_ERROR_OR] = true;
-    }
-    if ((EB[i] & ERROR_CRC)) {
-      // CRC error detected in readpacket
-      packetError[P1P2_ERROR_CRC] = true;
+    if ((EB[i] & ERROR_PE)         // parity error detected
+        || (EB[i] & ERROR_OR)      // buffer overrun detected (overrun is after, not before, the read byte)
+        || (EB[i] & ERROR_CRC)) {  // CRC error detected in readpacket
+      packetError[P1P2_READ_ERROR] = true;
     }
   }
   for (byte i = 0; i < P1P2_LAST; i++) {
@@ -206,7 +195,7 @@ void processWrite(uint16_t n) {
         data.eepromDaikin.today++;
         // updateEeprom();  // is it really needed?
       } else {
-        data.p1p2Cnt[P1P2_WRITE_QUOTA]++;
+        data.eepromDaikin.dropped++;
       }
     } else {
       // TODO error

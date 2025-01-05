@@ -358,6 +358,8 @@ void processPost(EthernetClient &client) {
       break;
     case ACT_CLEAR_QUOTA:
       data.eepromDaikin.today = 0;
+      data.eepromDaikin.dropped = 0;
+      data.eepromDaikin.invalid = 0;
       break;
     default:
       break;

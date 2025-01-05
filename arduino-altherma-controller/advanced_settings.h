@@ -21,7 +21,8 @@
 /****** IP Settings ******/
 const bool DEFAULT_AUTO_IP = false;  // Default Auto IP setting (only used if ENABLE_DHCP)
 #define DEFAULT_STATIC_IP \
-  { 192, 168, 1, 254 }  // Default Static IP
+  { 10, 10, 10, 34 }  // Default Static IP
+//   { 192, 168, 1, 254 }  // Default Static IP
 #define DEFAULT_SUBMASK \
   { 255, 255, 255, 0 }  // Default Submask
 #define DEFAULT_GATEWAY \
@@ -82,7 +83,8 @@ const uint16_t INIT_SDTO = 2500;  // P1/P2 write time-out delay (ms)
 const byte CTRL_ID[] = { 0xB4, 0x10 };  // LAN adapter ID in 0x31 payload bytes 7 and 8
 
 const byte MAC_START[3] = { 0x90, 0xA2, 0xDA };  // MAC range for Gheo SA
-const byte ETH_RESET_PIN = 7;                    // Ethernet shield reset pin (deals with power on reset issue on low quality ethernet shields)
+#define ETH_RESET_PIN 7                          // Ethernet shield reset pin (deals with power on reset issue on low quality ethernet shields) \
+                                                 // Comment out to disable the functionality
 const uint16_t ETH_RESET_DELAY = 500;            // Delay (ms) during Ethernet start, wait for Ethernet shield to start (reset issue on low quality ethernet shields)
 const uint16_t WEB_IDLE_TIMEOUT = 400;           // Time (ms) from last client data after which webserver TCP socket could be disconnected, non-blocking.
 const uint16_t TCP_DISCON_TIMEOUT = 500;         // Timeout (ms) for client DISCON socket command, non-blocking alternative to https://www.arduino.cc/reference/en/libraries/ethernet/client.setconnectiontimeout/

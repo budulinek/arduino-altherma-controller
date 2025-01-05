@@ -43,10 +43,10 @@ void checkCommand(byte command[], byte cmdLen) {
         }
       }
     } else {
-      data.p1p2Cnt[P1P2_WRITE_INVALID]++;  // Write Command Invalid
+      data.eepromDaikin.invalid++;  // Write Command Invalid
     }
   } else {
-    data.p1p2Cnt[P1P2_WRITE_QUEUE]++;  // TODO error: Write Queue Full
+    data.eepromDaikin.invalid++;  // Write Queue Full
   }
 }
 
