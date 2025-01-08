@@ -75,8 +75,10 @@ void sendPage(EthernetClient &client, byte reqPage) {
                     n - input type=number
                     s - select input with numbers
                     p - inputs disabled by id=o checkbox
+                    v - parameter value inputs
                   CSS Ids
                     o - checkbox which disables other checkboxes and inputs
+                    t - packet type select
                   */
                   "*{box-sizing:border-box}"
                   "body{padding:1px;margin:0;font-family:sans-serif;height:100vh}"
@@ -95,8 +97,9 @@ void sendPage(EthernetClient &client, byte reqPage) {
                   "label{width:30%;text-align:right;margin-right:2px}"
                   ".s{text-align:right}"
                   ".s>option{direction:rtl}"
-                  ".i{text-align:center;width:4ch}"
+                  ".i,.v{text-align:center;width:4ch;color:black}"
                   ".n{width:10ch}"
+                  ".v{display:none}"
                   "</style>"
                   "</head>"
                   "<body onload=g(document.getElementById('o').checked)>"
@@ -220,14 +223,13 @@ void contentInfo(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Ethernet Sockets"));
   chunked.print(maxSockNum);
   tagDivClose(chunked);
-#endif /* ENABLE_EXTENDED_WEBUI */
-
   tagLabelDiv(chunked, F("MAC Address"));
   for (byte i = 0; i < 6; i++) {
     chunked.print(hex(data.mac[i]));
     if (i < 5) chunked.print(F(":"));
   }
   tagDivClose(chunked);
+#endif /* ENABLE_EXTENDED_WEBUI */
 
 #ifdef ENABLE_DHCP
   tagLabelDiv(chunked, F("DHCP Status"));
@@ -240,10 +242,11 @@ void contentInfo(ChunkedPrint &chunked) {
   }
   tagDivClose(chunked);
 #endif /* ENABLE_DHCP */
-
+#ifdef ENABLE_EXTENDED_WEBUI
   tagLabelDiv(chunked, F("IP Address"));
   chunked.print(IPAddress(Ethernet.localIP()));
   tagDivClose(chunked);
+#endif /* ENABLE_EXTENDED_WEBUI */
 }
 
 /**************************************************************************/
@@ -268,12 +271,30 @@ void contentStatus(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Date"));
   tagSpan(chunked, JSON_DATE);
   tagDivClose(chunked);
-  chunked.print(F("</form><form method=post>"));
+  chunked.print(F("</form><form method=post>"
+                  "<script>"
+                  "window.onload=()=>{const l={"));
+  for (byte i = PACKET_TYPE_CONTROL[FIRST]; i <= PACKET_TYPE_CONTROL[LAST]; i++) {
+    if (PACKET_PARAM_VAL_SIZE[i - PACKET_TYPE_CONTROL[FIRST]] == 0) continue;
+    chunked.print(F("'"));
+    chunked.print(hex(i));
+    chunked.print(F("':["));
+    for (byte j = 1; j <= PACKET_PARAM_VAL_SIZE[i - PACKET_TYPE_CONTROL[FIRST]]; j++) {
+      chunked.print(F("'v"));
+      chunked.print(j);
+      chunked.print(F("',"));
+    }
+    chunked.print(F("],"));
+  }
+  chunked.print(F("};"
+                  "const u=v=>document.querySelectorAll('.v').forEach(f=>{const s=l[v]?.includes(f.id);f.style.display=s?'inline':'none';f.required=!!s});"
+                  "const t=document.getElementById('t');t.onchange=()=>u(t.value);u(t.value);};"
+                  "</script>"));
   tagLabelDiv(chunked, F("Write Command"));
   chunked.print(F("Packet Type "
                   "<select name="));
   chunked.print(POST_CMD_TYPE, HEX);
-  chunked.print(F(">"));
+  chunked.print(F(" id=t>"));
   for (byte i = PACKET_TYPE_CONTROL[FIRST]; i <= PACKET_TYPE_CONTROL[LAST]; i++) {
     if (PACKET_PARAM_VAL_SIZE[i - PACKET_TYPE_CONTROL[FIRST]] == 0) continue;
     chunked.print(F("<option value="));
@@ -644,8 +665,15 @@ void tagInputHex(ChunkedPrint &chunked, const byte name, const bool required, co
   if (required) {
     chunked.print(F(" required"));
   }
+  if (name == POST_CMD_PARAM_2) {
+    chunked.print(F(" disabled"));
+  }
+  if (name >= POST_CMD_VAL_1 && name <= POST_CMD_VAL_4) {
+    chunked.print(F(" class=v id=v"));
+    chunked.print(name - POST_CMD_VAL_1 + 1);
+  }
   chunked.print(F(" minlength=2 maxlength=2 class=i pattern='[a-fA-F&bsol;d]+' value='"));
-  if (printVal) {
+  if (printVal || (name == POST_CMD_PARAM_2)) {
     chunked.print(hex(value));
   }
   chunked.print(F("'>"));
@@ -900,6 +928,7 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
           }
         }
         chunked.print(F("<br>"));
+#ifdef ENABLE_EXTENDED_WEBUI
         for (byte i = 0; i < 16; i++) {
           if ((FxRequests[i] == 0)                          // Skip address Fx if no 00Fx30 request was made (address Fx not supported by the pump)
               || ((0xF0 | i) == controllerAddr)) continue;  // Skip address Fx if this device uses address Fx
@@ -912,6 +941,7 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
           chunked.print(i, HEX);
           chunked.print(F(")<br>"));
         }
+#endif /* ENABLE_EXTENDED_WEBUI */
         if (!availableSlot) {
           chunked.print(F("Additional device not supported by the pump"));
         }
@@ -941,28 +971,6 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
         chunked.print(F(" Write OK<br>"));
         chunked.print(data.p1p2Cnt[P1P2_WRITE_ERROR]);
         chunked.print(F(" Error"));
-
-
-        // for (byte i = 0; i < P1P2_LAST; i++) {
-        //   chunked.print(data.p1p2Cnt[i]);
-        //   switch (i) {
-        //     case P1P2_READ_OK:
-        //       chunked.print(F(" Read OK"));
-        //       break;
-        //     case P1P2_READ_ERROR:
-        //       chunked.print(F(" Read Error"));
-        //       break;
-        //     case P1P2_WRITE_OK:
-        //       chunked.print(F(" Write OK"));
-        //       break;
-        //     case P1P2_WRITE_ERROR:
-        //       chunked.print(F(" Write Error"));
-        //       break;
-        //     default:
-        //       break;
-        //   }
-        //   chunked.print(F("<br>"));
-        // }
       }
       break;
     default:

@@ -41,21 +41,18 @@ The controller has a built-in web interface. You can use this web interface to c
   - rollover of counters is synchronized
   - content of the P1P2 Status page is updated in the background (fetch API), javascript alert is shown if connection is lost
 * user settings:
-  - can be changed via web interface (see screenshots bellow)
-  - stored in EEPROM
+  - can be changed via web interface (see screenshots bellow), all web UI inputs have proper validation
+  - stored in Arduino EEPROM
   - retained during firmware upgrade (only in case of major version change, Arduino loads factory defaults)
-  - all web interface inputs have proper validation
-  - factory defaults for user settings can be specified in advanced_settings.h
-  - settings marked \* are only available if ENABLE_DHCP is defined in the sketch
-  - settings marked \*\* are only available if ENABLE_EXTRA_DIAG is defined in the sketch
+  - factory defaults for user settings can be changed in advanced_settings.h
 * advanced settings:
-  - can be changed in sketch (advanced_settings.h)
+  - can be changed in sketch before comnpilation (advanced_settings.h)
   - stored in flash memory
 
 # Hardware
 Get the hardware and connect together:
 
-* **Arduino Uno**.<br>Cheap clones are sufficient.
+* **Arduino Uno or Mega** (and possibly other boards with ATmega chips).<br>On Mega you have to configure Serial in advanced settings in the sketch.
 * **Ethernet shield with WIZnet chip (W5100, W5200 or W5500)**.<br>The ubiquitous W5100 shield for Uno/Mega is sufficient. If available, I recommend W5500 Ethernet Shield. You can also use combo board MCU + ethernet (such as ATmega328 + W5500 board from Keyestudio).<br>ATTENTION: Ethernet shields with ENC28J60 chip will not work !!!
 * **Custom P1P2 Uno adapter**.<br>You can [solder your own adapter](https://github.com/Arnold-n/P1P2Serial/tree/main/circuits#p1p2-adapter-as-arduino-uno-hat) or buy one from Arnold-n (his e-mail address can be found on line 3 of his library [P1P2Serial.cpp](https://github.com/Arnold-n/P1P2Serial/blob/main/P1P2Serial.cpp)).
 
@@ -67,18 +64,19 @@ Here is my HW setup (cheap Arduino Uno clone + W5500 Ethernet shield from Keyest
 
 You can either:
 - **Download and flash my pre-compiled firmware** from "Releases".
-- **Compile your own firmware**. Download this repository (all *.ino files) and open arduino-altherma-controller.ino in Arduino IDE. If you want, you can check advanced_settings.h for advanced settings (can only be changed in the sketch) and for default factory settings (can be later changed via web interface). Download all required libraries, compile and upload your program to Arduino. The program uses the following external libraries (all are available in Arduino IDE's "library manager"):
-  - CircularBuffer (https://github.com/rlogiacco/CircularBuffer)
-  - StreamLib (https://github.com/jandrassy/StreamLib)
+- **Compile your own firmware**. Download this repository (all *.ino files) and open arduino-modbus-rtu-tcp-gateway.ino in Arduino IDE. If you want, you can check advanced_settings.h for advanced settings (can only be changed in the sketch) and for default factory settings (can be later changed via web interface). Download all required libraries, compile and upload your program to Arduino. The program uses the following external libraries (all are available in Arduino IDE's "library manager"):
+ - CircularBuffer (https://github.com/rlogiacco/CircularBuffer)
+ - StreamLib (https://github.com/jandrassy/StreamLib)
 
 Connect your Arduino to ethernet and use your web browser to access the web interface on default IP:  http://192.168.1.254
+Enjoy :-)
 
 # Settings
 
 This controller has a built-in webserver which allows you to configure the controller itself, check basic system info of the controller and the status of its connection to the P1/P2 bus. 
 
-  - settings marked \* are only available if ENABLE_DHCP is defined in the sketch
-  - settings marked \*\* are only available if ENABLE_EXTENDED_WEBUI is defined in the sketch
+- settings marked \* are only available if ENABLE_DHCP is defined in advanced_settings.h
+- settings marked \*\* are only available if ENABLE_EXTENDED_WEBUI is defined in advanced_settings.h
 
 ## System Info
 
@@ -131,10 +129,10 @@ This controller has a built-in webserver which allows you to configure the contr
   - Requests for the counters packets. If the **Enable Write to P1P2** setting is set to *Automatically*, requests for counter packets are sent even if the controller failed to receive an address (is in read only mode).
   - Write commands received via web interface or UDP. These packets are written to the P1/P2 bus and written in Daikin EEPROM.
 * **EEPROM Write Quota Reached**. Daily EEPROM Write Quota (configured in **P1P2 Settings**) was reached. The command (received via UDP or from the web interface) was dropped.
-* **Write Command Queue Full**. Internal queue (circular buffer) for commands is full. The command (received via UDP or from the web interface) was dropped.
-* **Write Command Invalid**. Command received via UDP or from the web interface was invalid, it was dropped. Possible reasons:
+* **Write Command Error**. Command received via UDP or from the web interface was invalid, it was dropped. Possible reasons:
   - Packet type (first byte) is not supported (PACKET_PARAM_VAL_SIZE in advanced settings is set to zero).
   - Incorrect packet length. Command should have 1 byte for type, 2 bytes for parameter number and the correct numer of bytes for the parameter value (see PACKET_PARAM_VAL_SIZE in advanced settings).
+  - Internal queue (circular buffer) for commands is full.
 * **Parity Read Error**.
 * **Too Long Read Error**. Packet received is longer than the read buffer.
 * **Start Bit Write Error**. Start bit error during write.
@@ -328,6 +326,10 @@ The code was tested on Arduino Uno, ethernet chips W5100 and W5500. It may work 
 * The random number generator (for random MAC) is seeded through watch dog timer interrupt - this will work only on Arduino (credits to https://sites.google.com/site/astudyofentropy/project-definition/timer-jitter-entropy-sources/entropy-library/arduino-random-seed)
 * The restart function will also work only on Arduino.
 
+## Ethernet Power On Reset Issue
+
+Sometimes the gateway is running fine for days but after power-up or brief loss of power (caused for example by undervoltage), ethernet connection is lost. What is the problem? The W5x00 chip on the Arduino Ethernet Shield is not initialized correctly upon power-up. There is an easy solution to the issue described in a separate [document here](Ethernet_SW_Reset.md).
+
 ## Remote IP settings on the W5500 Chip
 
 The Ethernet.setRetransmissionCount() and Ethernet.setRetransmissionTimeout() commands do not work on W5500 chips because of a bug in the Ethernet.h library (see [this issue](https://github.com/arduino-libraries/Ethernet/issues/140)). As a result, Arduino fails to read data from the P1/P2 bus (read errors, CRC errors) if certain conditions are met:
@@ -352,17 +354,17 @@ As of April 2023:
 | **Project** | **[budulinek/<br>arduino-altherma-controller](https://github.com/budulinek/arduino-altherma-controller)** | **[Arnold-n/<br>P1P2Serial](https://github.com/Arnold-n/P1P2Serial)** | **[raomin/<br>ESPAltherma](https://github.com/raomin/ESPAltherma)** | **[tadasdanielius/<br>daikin_altherma](https://github.com/tadasdanielius/daikin_altherma)** | **[speleolontra/<br>daikin_residential_altherma](https://github.com/speleolontra/daikin_residential_altherma)** ||
 |------------------------------------|------------------------------------------------------------------------------------|----------------------------------------------------------|-------------------------------------------------------------------------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------|-------------------------------------------|
 | **Hardware** | • Arduino Uno<br>• Ethernet Shield<br>• Custom P1P2 Uno adapter | • Custom all-in-one board | • M5StickC (or any ESP32/ESP8266 board)<br> • external relay (optional) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with OLD firmware) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with NEW firmware) | • Daikin WLAN adapter<br>(BRP069A78) |
-| **Programable MCUs** | 1<br>ATmega328P | 2<br>ATmega328P + ESP8266 | 1<br>ESP32/8266 | --- | --- ||
+| **Programable MCUs** | ATmega328P | ATmega328P + ESP8266 | ESP32/8266 | --- | --- ||
 | **Connection to Daikin Altherma**  | P1/P2 bus | P1/P2 bus | X10A serial port | P1/P2 bus | P1/P2 bus | dedicated slot |
 | **Interface** | • Ethernet | • WiFi<br>• Ethernet (optional) | • WiFi | • Ethernet | • Ethernet | • WiFi |
 | **Local LAN or Cloud** | Local | Local | Local | Local | Cloud ||
-| **Controller configuration** | • web interface<br>• sketch | • console<br>• sketch | • sketch | • web interface | • web interface ||
+| **Controller configuration** | • web interface | • HA<br> • console | • sketch | • web interface | • web interface ||
 | **OTA upgrades** | No | Yes | Yes | Yes | Yes ||
 | **Read data from Daikin Altherma** | Yes | Yes | Yes | Limited | Limited ||
 | **Control Daikin Altherma** | Yes | Yes | Limited | Yes | Yes ||
 | **Communication protocol** | UDP | MQTT | MQTT | Websockets | Websockets ||
 | **Data format** | HEX | JSON | JSON | JSON | JSON ||
-| **Integration with** | • Loxone<br>• other systems (via UDP-HEX) | • Home Assistant<br>• other systems (via MQTT-JSON) | • Home Assistant<br>• other systems (via MQTT-JSON) | • Home Assistant | • Home Assistant ||
+| **Integration with** | • Loxone<br><br>• other systems (via UDP-HEX) | • Home Assistant<br><br>• other systems (via MQTT-JSON) | • Home Assistant<br><br>• other systems (via MQTT-JSON) | • Home Assistant | • Home Assistant ||
 
 ## Version history
 
