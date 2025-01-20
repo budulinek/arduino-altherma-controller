@@ -14,8 +14,10 @@ void recvBus() {
     errorbuf_t readError = 0;
     uint16_t nread = P1P2Serial.readpacket(RB, delta, EB, RB_SIZE, CRC_GEN, CRC_FEED);
     if (nread > RB_SIZE) {
-      //  Received packet longer than RB_SIZE
+//  Received packet longer than RB_SIZE
+#ifdef ENABLE_EXTENDED_WEBUI
       data.p1p2Cnt[P1P2_READ_ERROR]++;
+#endif /* ENABLE_EXTENDED_WEBUI */
       nread = RB_SIZE;
       readError = 0xFF;
     }
@@ -36,7 +38,9 @@ void recvBus() {
         processWrite(nread);
       }
     } else {
+#ifdef ENABLE_EXTENDED_WEBUI
       processErrors(nread);
+#endif /* ENABLE_EXTENDED_WEBUI */
     }
   }
 }
@@ -50,8 +54,10 @@ void recvBus() {
 /**************************************************************************/
 void processParseRead(uint16_t n, uint16_t delta) {
   if (CRC_GEN) n--;  // omit CRC
-  // update counters and packet type status
+                     // update counters and packet type status
+#ifdef ENABLE_EXTENDED_WEBUI
   data.p1p2Cnt[P1P2_READ_OK]++;
+#endif /* ENABLE_EXTENDED_WEBUI */
   if (setPacketStatus(RB[2], PACKET_SEEN, true) == true) {
     updateEeprom();
   }
@@ -144,37 +150,20 @@ void processErrors(uint16_t nread) {
 
   for (uint16_t i = 0; i < nread; i++) {
     uint8_t errors = EB[i];
-    if (errors & (ERROR_SB | ERROR_BE | ERROR_BC)) {  // collision suspicion errors
+    if (errors & (ERROR_SB        // collision suspicion due to data verification error in reading back written data
+                  | ERROR_BE      // collision suspicion due to data verification error in reading back written data
+                  | ERROR_BC)) {  // collision suspicion due to 0 during 2nd half bit signal read back
       packetErrorFlags |= (1 << P1P2_WRITE_ERROR);
     }
-    if (errors & (ERROR_PE | ERROR_OR | ERROR_CRC)) {  // parity, overrun, or CRC errors
+    if (errors & (ERROR_PE         // parity error detected
+                  | ERROR_OR       // buffer overrun detected (overrun is after, not before, the read byte)
+                  | ERROR_CRC)) {  // CRC error detected in readpacket
       packetErrorFlags |= (1 << P1P2_READ_ERROR);
     }
   }
   if (packetErrorFlags & (1 << P1P2_WRITE_ERROR)) data.p1p2Cnt[P1P2_WRITE_ERROR]++;
   if (packetErrorFlags & (1 << P1P2_READ_ERROR)) data.p1p2Cnt[P1P2_READ_ERROR]++;
 }
-
-
-// void processErrors(uint16_t nread) {
-//   bool packetError[P1P2_LAST];
-//   memset(packetError, 0, sizeof(packetError));
-//   for (uint16_t i = 0; i < nread; i++) {
-//     if ((EB[i] & ERROR_SB)        // collision suspicion due to data verification error in reading back written data
-//         || (EB[i] & ERROR_BE)     // collision suspicion due to data verification error in reading back written data
-//         || (EB[i] & ERROR_BC)) {  // collision suspicion due to 0 during 2nd half bit signal read back
-//       packetError[P1P2_WRITE_ERROR] = true;
-//     }
-//     if ((EB[i] & ERROR_PE)         // parity error detected
-//         || (EB[i] & ERROR_OR)      // buffer overrun detected (overrun is after, not before, the read byte)
-//         || (EB[i] & ERROR_CRC)) {  // CRC error detected in readpacket
-//       packetError[P1P2_READ_ERROR] = true;
-//     }
-//   }
-//   for (byte i = 0; i < P1P2_LAST; i++) {
-//     if (packetError[i] == true) data.p1p2Cnt[i]++;
-//   }
-// }
 
 /**************************************************************************/
 /*!
@@ -263,9 +252,11 @@ void processWrite(uint16_t n) {
               case PACKET_TYPE_INDOOR_NAME:
                 indoorInQueue = false;
                 break;
+#ifdef ENABLE_EXTENDED_WEBUI
               case PACKET_TYPE_OUTDOOR_NAME:
                 outdoorInQueue = false;
                 break;
+#endif /* ENABLE_EXTENDED_WEBUI */
               default:
                 break;
             }
@@ -305,7 +296,9 @@ void processWrite(uint16_t n) {
     }
   }
   P1P2Serial.writepacket(WB, n, d, CRC_GEN, CRC_FEED);
+#ifdef ENABLE_EXTENDED_WEBUI
   data.p1p2Cnt[P1P2_WRITE_OK]++;
+#endif /* ENABLE_EXTENDED_WEBUI */
 }
 
 /**************************************************************************/

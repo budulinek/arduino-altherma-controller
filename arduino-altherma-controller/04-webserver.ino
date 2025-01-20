@@ -100,6 +100,7 @@ enum JSON_type : byte {
   JSON_P1P2_STATS,          // Multiple P1P2 Read Statistics
   JSON_UDP_STATS,           // Multiple P1P2 Write Statistics
   JSON_CONTROLLER,          // Controller Mode
+  JSON_OTHER_CONTROLLERS,   // Other controllers connected
   JSON_LAST,                // Must be the very last element in this array
 };
 
@@ -140,12 +141,12 @@ void recvWeb(EthernetClient &client) {
   // Get the requested page from URI
   byte reqPage = PAGE_ERROR;  // requested page, 404 error is a default
   if (uri[0] == '/') {
-    if (uri[1] == '\0')  // the homepage System Info
-      reqPage = PAGE_INFO;
-    else if (!strcmp(uri + 2, ".htm")) {
-      reqPage = byte(uri[1] - 48);  // Convert single ASCII char to byte
-      if (reqPage >= PAGE_WAIT) reqPage = PAGE_ERROR;
-    } else if (!strcmp(uri, "/d.json")) {
+    if (uri[1] == '\0') {
+      reqPage = PAGE_INFO;  // Homepage
+    } else if (uri[1] >= '0' && uri[1] <= '9' && strcmp(uri + 2, ".htm") == 0) {
+      reqPage = byte(uri[1] - '0');  // Convert ASCII digit to byte
+      if (reqPage > PAGE_WAIT) reqPage = PAGE_ERROR;
+    } else if (strcmp(uri, "/d.json") == 0) {
       reqPage = PAGE_DATA;
     }
   }
@@ -193,9 +194,14 @@ void processPost(EthernetClient &client) {
   while (client.available()) {
     char post[POST_SIZE];
     byte len = 0;
+    bool isDecimal = false;
     while (client.available() && len < sizeof(post) - 1) {
       char c = client.read();
       if (c == '&') break;
+      if (c == ',' || c == '.') {
+        isDecimal = true;
+        continue;
+      }
       post[len] = c;
       len++;
     }
@@ -312,6 +318,7 @@ void processPost(EthernetClient &client) {
         data.config.writeQuota = byte(paramValueUint);
         break;
       case POST_HYSTERESIS:
+        if (isDecimal == false) paramValueUint *= 10;
         data.config.hysteresis = byte(paramValueUint);
         break;
       case POST_SEND_ALL:
@@ -366,9 +373,6 @@ void processPost(EthernetClient &client) {
   }
   // if new P1P2 command received, put into queue
   if (cmdLen > 1) {
-    for (byte i = 0; i < cmdLen; i++) {
-      //Serial.println(hex(command[i]));
-    }
     checkCommand(command, cmdLen);
     return;  // do not update EEPROM
   }

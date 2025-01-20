@@ -11,7 +11,8 @@
   v3.0 2024-02-02 Function comments. Remove "Disabled" Controller mode (only Manual; Auto),
                   improved automatic connection to the P1P2 bus, connect to any peripheral address
                   between 0xF0 to 0xFF (depends on Altherma model), show other controllers and available addresses.
-  v4.0 2025-XX-XX CSS improvement, code optimization, simplify P1P2 Status page
+  v4.0 2025-XX-XX CSS improvement, code optimization (with some help from ChatGPT), simplify P1P2 Status page,
+                  target temp. hysteresis in decimals, fix 404 error page
 */
 
 const byte VERSION[] = { 4, 0 };
@@ -212,8 +213,8 @@ const byte PACKET_TYPE_HANDSHAKE = PACKET_TYPE_CONTROL[FIRST];
 
 const byte NAME_SIZE = 16;  // buffer size for device name
 char daikinIndoor[NAME_SIZE];
-bool indoorInQueue;   // request for an indoor name in queue
-bool outdoorInQueue;  // request for an outdoor name in queue
+bool indoorInQueue;  // request for an indoor name in queue
+//bool outdoorInQueue;  // request for an outdoor name in queue
 
 #ifdef ENABLE_EXTENDED_WEBUI
 char daikinOutdoor[NAME_SIZE];

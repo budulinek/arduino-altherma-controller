@@ -41,12 +41,12 @@ The controller has a built-in web interface. You can use this web interface to c
   - rollover of counters is synchronized
   - content of the P1P2 Status page is updated in the background (fetch API), javascript alert is shown if connection is lost
 * user settings:
-  - can be changed via web interface (see screenshots bellow), all web UI inputs have proper validation
+  - can be changed via web interface (see screenshots below), all web UI inputs have proper validation
   - stored in Arduino EEPROM
   - retained during firmware upgrade (only in case of major version change, Arduino loads factory defaults)
   - factory defaults for user settings can be changed in advanced_settings.h
 * advanced settings:
-  - can be changed in sketch before comnpilation (advanced_settings.h)
+  - can be changed in sketch before compilation (advanced_settings.h)
   - stored in flash memory
 
 # Hardware
@@ -73,7 +73,7 @@ Enjoy :-)
 
 # Settings
 
-This controller has a built-in webserver which allows you to configure the controller itself, check basic system info of the controller and the status of its connection to the P1/P2 bus. 
+This controller has a built-in webserver that allows you to configure the controller itself, check basic system info of the controller and the status of its connection to the P1/P2 bus.
 
 - settings marked \* are only available if ENABLE_DHCP is defined in advanced_settings.h
 - settings marked \*\* are only available if ENABLE_EXTENDED_WEBUI is defined in advanced_settings.h
@@ -86,7 +86,7 @@ This controller has a built-in webserver which allows you to configure the contr
 
 **Ethernet Chip**. Wiznet chip on the ethernet shield.
 
-**MAC Address**. First 3 bytes are fixed 90:A2:DA, remaining 3 bytes are random. You can also set manual MAC in IP Settings.
+**MAC Address**.\*\* First 3 bytes are fixed 90:A2:DA, remaining 3 bytes are random. You can also set manual MAC in IP Settings.
 
 ## P1P2 Status
 
@@ -96,49 +96,55 @@ This controller has a built-in webserver which allows you to configure the contr
 
 **Daikin Outdoor Unit**.\*\* Shows the name of your Altherma outdoor unit.
 
-**External Controllers**. Shows all external controller connected to the P1/P2 bus (incl. their addresses) and provides info whether additional controller is supported by your heat pump. These messages can show up:
+**Date**. Displays internal date and time of the heat pump.
+
+**This Controller**. Shows the status of this Altherma UDP Controller. These messages can show up:
 * **No connection to the P1P2 bus**. No data packets were read from the P1/P2 bus. Check your connection to the P1/P2 bus.
-* **This device is connected (read only)**. The controller is connected in read only mode. It does not write anything to the P1/P2 bus but it still passively monitors the P1/P2 bus and sends (most) data from the heat pump via UDP messages. If your **Enable Write to P1P2** setting is set to *Manually*, you can manually enable write mode (if your pump supports additional device on the P1/P2 bus). Read only mode has several limitations:
+* **Connected (read only)**. The controller is connected in read only mode. It does not write anything to the P1/P2 bus but it still passively monitors the P1/P2 bus and sends (most) data from the heat pump via UDP messages. If your **Enable Write to P1P2** setting is set to *Manually*, you can manually enable write mode (if your pump supports additional device on the P1/P2 bus). Read only mode has several limitations:
   - does not show Altherma model in **Daikin Unit**
   - can not periodically request, read (and send via UDP) Altherma counters
   - can not control Altherma by sending **Write Command** through the web interface
   - can not control Altherma by sending commands via UDP
-* **This device is connected (address 0xF..)**. This Arduino device is connected to the P1/P2 bus for both reading and writing (sending commands). The controller can write to the P1/P2 bus only after it has been allocated an address by the heat pump (Arduino will accept any address in the 0xF0 ~ 0xFF range). If your **Enable Write to P1P2** setting is set to *Manually*, you can manually disable write mode (release the address) and downgrade the connection to read only.
+* **Connected (address 0xF..)**. This Arduino device is connected to the P1/P2 bus for both reading and writing (sending commands). The controller can write to the P1/P2 bus only after it has been allocated an address by the heat pump (Arduino will accept any address in the 0xF0 ~ 0xFF range). If your **Enable Write to P1P2** setting is set to *Manually*, you can manually disable write mode (release the address) and downgrade the connection to read only.
+
+**External Controllers**. Shows all external controller connected to the P1/P2 bus (incl. their addresses) and provides info whether additional controller is supported by your heat pump. These messages can show up:
 * **Another device is connected (address 0xF..)**. Another device is connected to the P1/P2 bus using address 0xF.. This "another device" can be second Arduino device, commercial controller by Daikin or by third party (Daikin LAN adapter, Daikin Madoka, DCOM LT/MB, Zennio KLIC-DA KNX, Coolmaster, etc.).
 * **Additional device can be connected (address 0xF..)**. Additional device can be connected to the P1/P2 bus. How many devices can be connected (ie. how many addresses are available for external devices) depends on the model of the heat pump. For example, Altherma LT supports only 1 device (address 0xF0), Altherma 3 support up to 3 devices (addresses 0xF0, 0xF1 and 0xFF).
 * **Additional device not supported by the pump**. All available addresses have been allocated to external controllers. The heat pump (the main Daikin controller) does not support additional device on the P1/P2 bus.
 
-**Date**. Displays internal date and time of the heat pump.
-
 **Daikin EEPROM Writes**. Every time you send **Write Command** through the web interface or a command via UDP, settings of the main Daikin controller (= controller on your heat pump) change and new values are written to its internal EEPROM. **<ins>Your main Daikin controller's EEPROM has a limited number of writes, so keep an eye on this counter in order to prevent EEPROM wear! It is adviced to do max 7000 writes per year (19 writes/day on average)</ins>**.
 * **Stats since ...**. Date and time since when **Daikin EEPROM Writes** are recorded. If you significantly change the date on the heat pump, reset the stats (so that **Average per Day** is calculated properly).
-* **Total Commands**. Total number of writes made by this Arduino controller since the date and time recorded in **Stats since ...**.
-* **Daily Average**. Daily average EEPROM writes, should be bellow 19. Calculated from internal date of the heat pump, so if you change the date in heat pump settings, it is recommended to reset the Daikin EEPROM Writes counter.
+* **Commands Sent**. Total number of writes made by this Arduino controller since the date and time recorded in **Stats since ...**. Click **Reset** to reset this stat.
+* **Dropped**. Daily EEPROM Write Quota (configured in **P1P2 Settings**) was reached. The command (received via UDP or from the web interface) was dropped. Click **Clear Quota** to reset this stat.
+* **Invalid**. Command received via UDP or from the web interface was invalid, it was dropped. Possible reasons:
+  - Packet type (first byte) is not supported (PACKET_PARAM_VAL_SIZE in advanced settings is set to zero).
+  - Incorrect packet length. Command should have 1 byte for type, 2 bytes for parameter number and the correct numer of bytes for the parameter value (see PACKET_PARAM_VAL_SIZE in advanced settings).
+  - Internal queue (circular buffer) for commands is full.
+* **Daily Average**. Daily average EEPROM writes, should be below 19. Calculated from internal date of the heat pump, so if you change the date in heat pump settings, it is recommended to reset the Daikin EEPROM Writes counter.
 * **Yesterday**. Number of writes made yesterday, updated at midnight. Should not significantly exceed average writes per day.
-* **Today**. Number of writes made today / out of daily **EEPROM Write Quota**. If you reach the quota and you still need to send a P1/P2 write command, you can  **Clear Quota**
+* **Today**. Number of writes made today out of daily **EEPROM Write Quota**. If you reach the quota and you still need to send a P1/P2 write command, you can  **Clear Quota**
 
-**Write Command**. You can send a P1/P2 write command directly from web interface, for testing or reverse-engineering P1/P2 write commands. The format of the write command send via web interface is identical to the command sent via UDP:
+**Write Command**. You can send a P1/P2 write command directly from web interface, for testing or reverse-engineering P1/P2 write commands. For the list of commands identified in the P1/P2 protocol (through reverse engineering) see [Payload-data-write.md](Payload-data-write.md). The format of the write command send via web interface is identical to the command sent via UDP:
 * **Packet Type**. The first byte is the packet type. Only supported packet types are listed in the drop-down menu.
 * **Param**. Parameter number, two bytes **<ins>in little endian format</ins>**! For example, parameter number 03 is inserted as `03` `00`.
 * **Value**. Parameter value, the number of bytes differs for various packet types. See PACKET_PARAM_VAL_SIZE in advanced settings for the correct number of bytes. Value is also **<ins>in little endian format</ins>**!
 
-**P1P2 Packets**. Counters for packets read from the P1/P2 bus or written to the P1/P2 bus, counters for various read and write errors. If any of the counters rolls over the unsigned long maximum (4,294,967,295), all counters will reset to 0.
-* **Bus Read OK**. Number of packets read from the P1/P2 bus, without errors. Not all of them are sent via UDP (see the **Packet Filter** settings). Packets are read from the P1/P2 bus (and sent via UDP) even if the controller is not connected to the P1/P2 bus.
-* **Bus Write OK**. Number of packets written to the P1/P2 bus. Writing to the P1/P2 bus is only possible after the controller receives an address from the pump (from the main Daikin controller). Several types of packets are be written to the P1/P2 bus:
+**P1P2 Packets**.\*\* Counters for packets read from the P1/P2 bus or written to the P1/P2 bus. If any of the counters rolls over the unsigned long maximum (4,294,967,295), all counters will reset to 0.
+* **Read OK**. Number of packets read from the P1/P2 bus, without errors. Not all of them are sent via UDP (see the **Packet Filter** settings). Packets are read from the P1/P2 bus (and sent via UDP) even if the controller is not connected to the P1/P2 bus.
+* **Read Error**. Error while attempting to read packet from the P1/P2 bus. Possible reasons:
+  - Packet received is longer than the read buffer.
+  - Parity error detected.
+  - Buffer overrun detected (overrun is after, not before, the read byte).
+  - CRC error detected in readpacket.
+* **Write OK**. Number of packets written to the P1/P2 bus. Writing to the P1/P2 bus is only possible after the controller receives an address from the pump (from the main Daikin controller). Several types of packets are be written to the P1/P2 bus:
   - Regular responses to heat pump's polling of external controllers (keep alive).
   - Requests for the counters packets. If the **Enable Write to P1P2** setting is set to *Automatically*, requests for counter packets are sent even if the controller failed to receive an address (is in read only mode).
   - Write commands received via web interface or UDP. These packets are written to the P1/P2 bus and written in Daikin EEPROM.
-* **EEPROM Write Quota Reached**. Daily EEPROM Write Quota (configured in **P1P2 Settings**) was reached. The command (received via UDP or from the web interface) was dropped.
-* **Write Command Error**. Command received via UDP or from the web interface was invalid, it was dropped. Possible reasons:
-  - Packet type (first byte) is not supported (PACKET_PARAM_VAL_SIZE in advanced settings is set to zero).
-  - Incorrect packet length. Command should have 1 byte for type, 2 bytes for parameter number and the correct numer of bytes for the parameter value (see PACKET_PARAM_VAL_SIZE in advanced settings).
-  - Internal queue (circular buffer) for commands is full.
-* **Parity Read Error**.
-* **Too Long Read Error**. Packet received is longer than the read buffer.
-* **Start Bit Write Error**. Start bit error during write.
-* **Bus Collission Write Error**. Data read-back error or high bit half read-back error, most probably caused by bus collision.
-* **Buffer Overrun Error**. Buffer overrun during read or read-back-verify.
-* **CRC Error**. CRC error during read or read-back-verify.
+* **Write Error**. Error while attempting to write packet to the P1/P2 bus. Possible reasons:
+  - Start bit error during write.
+  - Data read-back error, most probably caused by bus collision.
+  - High bit half read-back error, most probably caused by bus collision.
+
 
 **UDP Messages**.\*\*
 * **Sent to UDP**. Counts packets (messages) read from the P1/P2 bus and sent via UDP. Not all packets read from the P1/P2 bus are sent via UDP (see the **Packet Filter** settings).
@@ -148,7 +154,7 @@ This controller has a built-in webserver which allows you to configure the contr
 
 <img src="pics/daikin3.png" alt="daikin3" style="zoom:100%;" />
 
-**MAC Address**.\*\* Change MAC address. "Randomize" button will generate new random MAC (first 3 bytes fixed 90:A2:DA, last 3 bytes will be random).
+**MAC Address**. Change MAC address. **Randomize** button will generate new random MAC (first 3 bytes fixed 90:A2:DA, last 3 bytes will be random).
 
 **Auto IP**.\* Once enabled, Arduino will receive IP, gateway, subnet and DNS from the DHCP server.
 
@@ -164,7 +170,7 @@ This controller has a built-in webserver which allows you to configure the contr
 
 <img src="pics/daikin4.png" alt="daikin4" style="zoom:100%;" />
 
-**Remote IP**. IP address of your home automation system which listens for UDP messages and sends UDP commands.
+**Remote IP**. IP address of your home automation system that listens for UDP messages and sends UDP commands.
 
 **Send and Receive UDP**.
 * **Only to/from Remote IP**. Only accept UDP messages from the **Remote IP**, send UDP messages directly (unicast) to the **Remote IP**.
@@ -182,22 +188,28 @@ This controller has a built-in webserver which allows you to configure the contr
 * **Manually** (default). User can manually enable / disable writing to the P1/P2 bus (see the **P1P2 Status** page). After reboot or if connection is interrupted (see **Connection Timeout**), connection is downgraded to read only.
 * **Automatically**. The controller tries to (re)enable writing to the P1/P2 bus after (re)start, or if connection is interrupted. Even if the controller fails to receive an address from the heat pump, it will write counter requests to the P1/P2 bus (address is not needed for sending counter requests). Use *Automatically* at your own risk and only after you have successfuly enabled write manually! **Check the P1P2 Status page for P1/P2 errors and monitor Daikin EEPROM Writes in order to minimize Daikin controller EEPROM wear!**
 
-**EEPROM Write Quota**. Daily quota for writes to the EEPROM of the main Daikin controller. Every command sent via web interface (**Write Command** on **P1P2 Status** page) or via UDP = write cycle to the Daikin EEPROM. If the daily quota is reached, new commands are dropped. The quota resets at midnight.
-
 **Connection Timeout**. Timeout for reading data packets and for enabling writing to the P1/P2 bus.
 * If no data packet is received after timeout, **No connection to the P1P2 bus** message is displayed in the **P1P2 Status** page.
 * In **Manual Connect** mode, user initiated attempt to enable writing to the P1/P2 bus (to the main Daikin controller) fails if the controller does not receive an address within the **Connection Timeout**.
 * During operation, connection can be downgraded to read only if the controller loses its address for a period longer than the **Connection Timeout** (for example if the address is allocated by the heat pump to another external controller).
 
-**Target Temperature Hysteresis**. Hysteresis for writing target temperature or target setpoint commands (packet type 0x36) in 1/10 °C. Applies for write commands received via UDP. The purpose is to minimize Daikin controller EEPROM wear.
+**Daikin EEPROM Write Quota**. Daily quota for writes to the EEPROM of the main Daikin controller. Every command sent via web interface (**Write Command** on **P1P2 Status** page) or via UDP = write cycle to the Daikin EEPROM. If the daily quota is reached, new commands are dropped. The quota resets at midnight or manually on the **P1P2 Status** page.
+
+**Target Temperature Hysteresis**. Hysteresis for writing target temperature or target setpoint commands (packet type 0x36) in °C. The purpose is to minimize Daikin controller EEPROM wear. Applies for write commands received via UDP:
+  - Deviation_LWT_Zone_Add
+  - Deviation_LWT_Zone_Main
+  - Target_Setpoint_LWT_Zone_Add
+  - Target_Setpoint_LWT_Zone_Main
+  - Target_Temperature_DHW
+  - Target_Temperature_Room
 
 ## Packet Filter
 
 <img src="pics/daikin6.png" alt="daikin6" style="zoom:100%;" />
 
-The **Packet Filter** page lists all packet types observed on the P1/P2 bus. Some of them are exchanged between the heat pump and the main Daikin controller, others are exchanged between our controller (or other external controllers) and the main Daikin controller. If you do not see any packet types, wait few seconds. If a new packet type is detected, it will be automatically added to the list. **Packet types enabled on this page are forwarded via UDP**. By default, only Counter Packet (0xB8) and Data Packets (usually 0x10 - 0x16) are sent via UDP. Enable additional packet types if you want to test or reverse-engineer the P1/P2 protocol.
+The **Packet Filter** page lists all packet types observed on the P1/P2 bus. Some of them are exchanged between the heat pump and the main Daikin controller, others are exchanged between our controller (or other external controllers) and the main Daikin controller. If you do not see any packet types, wait few seconds. If a new packet type is detected, it will be automatically added to the list. **Packet types enabled on this page are forwarded via UDP**. By default, only Counter Packet (0xB8) and Data Packets (usually 0x10 - 0x16) are sent via UDP in order to reduce the UDP traffic. Enable additional packet types if you want to test or reverse-engineer the P1/P2 protocol.
 
-**Send All Packet Types**. All packets read from the P1/P2 bus are sent via UDP (including packet types which were not yet observed). There is a lot of communication going on on the P1/P2 bus, so use with caution!
+**Send All Packet Types**. All packets read from the P1/P2 bus are sent via UDP (including packet types that were not yet observed). There is a lot of communication going on on the P1/P2 bus, so use with caution!
 
 **Counters Packet**. Counter packet is periodically requested by the controller (only works if the controller is connected to the P1/P2 bus). Set the period for the counter packet requests.
 
@@ -262,11 +274,11 @@ There are 3 types of outputs available:
 * Discreet analog outputs for various operational modes. These outputs accept discreet integer values - see the provided hints. Here is an example of Heating/Cooling operational mode:
 <img src="pics/loxone5.png" />
 
-If you want to control your heat pump through Loxone App (just like I did in the short video above) or Loxone Web Interface, use the `EIB push-button` block. It has the same functionality as a normal push-button but in addition has the State (S) input which can forward the status of a heat pump settings without triggering an action on the output. As a result, you can have a smooth two-directional communication between the main Daikin controller and the Loxone App. Here you have a solution for the DHW On/Off push-button and the DHW Boost push button. Please note that the DHW_OnOff_B input is a compound input which needs to be decoded with `Binary Decoder`:
+If you want to control your heat pump through Loxone App (just like I did in the short video above) or Loxone Web Interface, use the `EIB push-button` block. It has the same functionality as a normal push-button but in addition has the State (S) input that can forward the status of a heat pump settings without triggering an action on the output. As a result, you can have a smooth two-directional communication between the main Daikin controller and the Loxone App. Here you have a solution for the DHW On/Off push-button and the DHW Boost push button. Please note that the DHW_OnOff_B input is a compound input that needs to be decoded with `Binary Decoder`:
 <img src="pics/loxone6.png" />
 ### 5. Digital Outputs (Relays)
 
-By default, the main Daikin controller (the user interface mounted at the indoor unit) acts as a thermostat. It has a temperature sensor and can control the heat pump by comparing the actual room temperature with target room temperature. This is not very practical solution if the main Daikin controller is located at the unit which sits somewhere in a separate boiler room.
+By default, the main Daikin controller (the user interface mounted at the indoor unit) acts as a thermostat. It has a temperature sensor and can control the heat pump by comparing the actual room temperature with target room temperature. This is not very practical solution if the main Daikin controller is located at the unit that sits somewhere in a separate boiler room.
 
 Fortunately, 1) Daikin Altherma allows you to connect an external thermostat and 2) Loxone Miniserver can act as an external thermostat.
 
@@ -278,7 +290,7 @@ Fortunately, 1) Daikin Altherma allows you to connect an external thermostat and
 
 <img src="pics/loxone7.png" />
 
-It is quite simple. I have a `HVAC Controller` block which serves as a heating and cooling source for 7 `Intelligent Room Controllers` (see the "7 Objects Assigned" note at the bottom of the HVAC block). The HVAC block needs to know the outdoor temperature, so I have connected the `Temperature_Outside_Stabilized` measured by the heat pump. Relay `Ext_Therm_Main_Heating` triggers heating on the main LWT zone (underfloor heating), relay `Ext_Therm_Add_Cooling` triggers cooling on the additional LWT zone (ceiling cooling panels). `Ext_Therm_Main_Cooling` is not connected because I do not use floor for cooling.
+It is quite simple. I have a `HVAC Controller` block that serves as a heating and cooling source for 7 `Intelligent Room Controllers` (see the "7 Objects Assigned" note at the bottom of the HVAC block). The HVAC block needs to know the outdoor temperature, so I have connected the `Temperature_Outside_Stabilized` measured by the heat pump. Relay `Ext_Therm_Main_Heating` triggers heating on the main LWT zone (underfloor heating), relay `Ext_Therm_Add_Cooling` triggers cooling on the additional LWT zone (ceiling cooling panels). `Ext_Therm_Main_Cooling` is not connected because I do not use floor for cooling.
 
 ### 6. Application Recommendations
 
@@ -298,7 +310,7 @@ It is quite simple. I have a `HVAC Controller` block which serves as a heating a
 
 * **Altherma heating curve + adjustments by Loxone**. The `Intelligent Temperature Controller` block can also output AQi - Flow Temperature Increase/Decrease. This increase/decrease is caused by the room temperature difference (see parameter G - Gain) and the target room temperature increase during heating phase (see parameter I - Target temperature increase). In other words, AQi is Loxone's adjustment to the weather-dependent target LWT. We can sent it to the heat pump through the `Deviation_LWT_Zone_Main` virtual UDP command. This is a compromise solution. We will let Altherma calculate the weather-dependent LWT (from the outdoor temperature) and Loxone will calculate the LWT adjustment (from the difference between target and actual room temperature). Since AQi does not change that often, we will have less EEPROM writes. You can try this choice, but:
   - Set the parameter I - Target temperature increase to zero. Daikin user manual explicitly discourages users from increasing/decreasing the desired room temperature to speed up space heating/cooling. Use only the parameter G - Gain.
-  - Check the number of Daikin EEPROM Writes in the Arduino controller web interface. Make sure that average writes per day (and yesterday writes) remain bellow the limit (19 writes per day).
+  - Check the number of Daikin EEPROM Writes in the Arduino controller web interface. Make sure that average writes per day (and yesterday writes) remain below the limit (19 writes per day).
 
 <img src="pics/loxone10.png" />
 
@@ -306,7 +318,7 @@ It is quite simple. I have a `HVAC Controller` block which serves as a heating a
 
 #### Home Assistant
 
-Arduino Altherma UDP controller is not suitable for Home Assistant. As far as I know, it is difficult to parse hex UDP messages in HA. Check the table bellow and use another solution (or Node-RED as an intermediary).
+Arduino Altherma UDP controller is not suitable for Home Assistant. As far as I know, it is difficult to parse hex UDP messages in HA. Check the table below and use another solution (or Node-RED as an intermediary).
 
 #### Node-RED
 
@@ -328,7 +340,7 @@ The code was tested on Arduino Uno, ethernet chips W5100 and W5500. It may work 
 
 ## Ethernet Power On Reset Issue
 
-Sometimes the gateway is running fine for days but after power-up or brief loss of power (caused for example by undervoltage), ethernet connection is lost. What is the problem? The W5x00 chip on the Arduino Ethernet Shield is not initialized correctly upon power-up. There is an easy solution to the issue described in a separate [document here](Ethernet_SW_Reset.md).
+Sometimes the gateway is running fine for days but after power-up or brief loss of power (caused for example by undervoltage), ethernet connection is lost. What is the problem? The W5x00 chip on the Arduino Ethernet Shield is not initialized correctly upon power-up. There is an easy solution to the issue described in a separate [document here](https://github.com/budulinek/arduino-modbus-rtu-tcp-gateway/blob/master/Ethernet_SW_Reset.md).
 
 ## Remote IP settings on the W5500 Chip
 
@@ -337,11 +349,11 @@ The Ethernet.setRetransmissionCount() and Ethernet.setRetransmissionTimeout() co
 * Send and Receive UDP setting is set to **Only to/from Remote IP**.
 * Device with the remote IP does not exist on your local LAN.
 
-In this situation (UDP unicast) the W5500 chip checks whether the remote IP exists via ARP request. While the Ethernet.h waits for the ARP response, new P1/P2 packet arrives and is not properly processed which leads to P1/P2 read errors. The solution is simple. If you have a shield with the W5500 chip, set the Send and Receive UDP setting to **To/From Any IP (Broadcast)**.
+In this situation (UDP unicast) the W5500 chip checks whether the remote IP exists via ARP request. While the Ethernet.h waits for the ARP response, new P1/P2 packet arrives and is not properly processed that leads to P1/P2 read errors. The solution is simple. If you have a shield with the W5500 chip, set the Send and Receive UDP setting to **To/From Any IP (Broadcast)**.
 
 ## Ethernet sockets
 
-The number of used sockets is determined (by the Ethernet.h library) based on microcontroller RAM. Therefore, even if you use W5500 (which has 8 sockets available) on Arduino Nano, only 4 sockets will be used due to limited RAM on Nano.
+The number of used sockets is determined (by the Ethernet.h library) based on microcontroller RAM. Therefore, even if you use W5500 (with 8 sockets available) on Arduino Nano, only 4 sockets will be used due to limited RAM on Nano.
 
 ## Memory
 

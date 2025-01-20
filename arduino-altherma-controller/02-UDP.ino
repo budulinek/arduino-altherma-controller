@@ -53,26 +53,6 @@ void checkCommand(byte command[], byte cmdLen) {
   }
 }
 
-// void checkCommand(byte command[], byte cmdLen) {
-//   if (cmdQueue.available() > cmdLen) {                                                               // check available space in queue
-//     if (PACKET_PARAM_VAL_SIZE[command[0] - PACKET_TYPE_CONTROL[FIRST]] != 0                          // check if param size is not zero (0 = write command not supported (yet))
-//         && cmdLen - 3 == (PACKET_PARAM_VAL_SIZE[command[0] - PACKET_TYPE_CONTROL[FIRST]])            // check parameter value size
-//         && (command[0] >= PACKET_TYPE_CONTROL[FIRST] && command[0] <= PACKET_TYPE_CONTROL[LAST])) {  // check packet type
-//       if (changed36Param(command) == true) {
-//         // push to queue (incl. cmdLen)
-//         cmdQueue.push(cmdLen);  // first byte in queue is cmdLen
-//         for (byte i = 0; i < cmdLen; i++) {
-//           cmdQueue.push(command[i]);
-//         }
-//       }
-//     } else {
-//       data.eepromDaikin.invalid++;  // Write Command Invalid
-//     }
-//   } else {
-//     data.eepromDaikin.invalid++;  // Write Queue Full
-//   }
-// }
-
 /**************************************************************************/
 /*!
   @brief Deletes command from queue.

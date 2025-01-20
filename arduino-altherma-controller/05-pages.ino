@@ -2,11 +2,14 @@ const byte WEB_OUT_BUFFER_SIZE = 64;  // size of web server write buffer (used b
 
 /**************************************************************************/
 /*!
-  @brief Sends the requested page (incl. 404 error and JSON document),
-  displays main page, renders title and left menu using, calls content functions
-  depending on the number (i.e. URL) of the requested web page.
-  In order to save flash memory, some HTML closing tags are omitted,
-  new lines in HTML code are also omitted.
+  @brief Handles HTTP responses by sending the requested web page.
+
+  Supports the following features:
+  - Responds with HTML content, JSON documents, or a 404 error.
+  - Renders the main page, including title, left menu, and content based on `reqPage`.
+  - Calls specific content generation functions for each page type.
+  - Optimized HTML output to minimize flash memory usage (e.g., no unnecessary closing tags, no new lines).
+
   @param client Ethernet TCP client
   @param reqPage Requested page number
 */
@@ -15,10 +18,12 @@ void sendPage(EthernetClient &client, byte reqPage) {
   char webOutBuffer[WEB_OUT_BUFFER_SIZE];
   ChunkedPrint chunked(client, webOutBuffer, sizeof(webOutBuffer));  // the StreamLib object to replace client print
   if (reqPage == PAGE_ERROR) {
-    chunked.print(F("HTTP/1.1 404 Not Found\r\n"
-                    "\r\n"
-                    "404 Not found"));
-    chunked.end();
+    chunked.print(F(
+      "HTTP/1.1 404 Not Found\r\n"
+      "Content-Type: text/plain\r\n"
+      "Content-Length: 13\r\n\r\n"
+      "404 Not Found"));
+    chunked.flush();
     return;
   } else if (reqPage == PAGE_DATA) {
     chunked.print(F("HTTP/1.1 200\r\n"  // An advantage of HTTP 1.1 is that you can keep the connection alive
@@ -265,12 +270,17 @@ void contentStatus(ChunkedPrint &chunked) {
   tagSpan(chunked, JSON_DAIKIN_OUTDOOR);
   tagDivClose(chunked);
 #endif /* ENABLE_EXTENDED_WEBUI */
-  tagLabelDiv(chunked, F("External Controllers"), true);
-  tagSpan(chunked, JSON_CONTROLLER);
-  tagDivClose(chunked);
   tagLabelDiv(chunked, F("Date"));
   tagSpan(chunked, JSON_DATE);
   tagDivClose(chunked);
+  tagLabelDiv(chunked, F("This Controller"), true);
+  tagSpan(chunked, JSON_CONTROLLER);
+  tagDivClose(chunked);
+  // #ifdef ENABLE_EXTENDED_WEBUI
+  tagLabelDiv(chunked, F("Other Controllers"), true);
+  tagSpan(chunked, JSON_OTHER_CONTROLLERS);
+  tagDivClose(chunked);
+  // #endif /* ENABLE_EXTENDED_WEBUI */
   chunked.print(F("</form><form method=post>"
                   "<script>"
                   "window.onload=()=>{const l={"));
@@ -327,7 +337,6 @@ void contentStatus(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Run Time"));
   tagSpan(chunked, JSON_RUNTIME);
   tagDivClose(chunked);
-#endif /* ENABLE_EXTENDED_WEBUI */
   tagLabelDiv(chunked, F("P1P2 Packets"));
   tagButton(chunked, F("Reset"), ACT_RESET_STATS, true);
   chunked.print(F(" Stats since "));
@@ -336,7 +345,6 @@ void contentStatus(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, 0);
   tagSpan(chunked, JSON_P1P2_STATS);
   tagDivClose(chunked);
-#ifdef ENABLE_EXTENDED_WEBUI
   tagLabelDiv(chunked, F("UDP Messages"));
   tagSpan(chunked, JSON_UDP_STATS);
   tagDivClose(chunked);
@@ -443,7 +451,7 @@ void contentP1P2(ChunkedPrint &chunked) {
   tagInputNumber(chunked, POST_QUOTA, 0, 100, data.config.writeQuota, F("writes per day"));
   tagDivClose(chunked);
   tagLabelDiv(chunked, F("Target Temperature Hysteresis"));
-  tagInputNumber(chunked, POST_HYSTERESIS, 0, 100, data.config.hysteresis, F("⅒°C"));
+  tagInputNumber(chunked, POST_HYSTERESIS, 0, 100, data.config.hysteresis, F("°C"));
   tagDivClose(chunked);
 }
 
@@ -467,7 +475,7 @@ void contentFilter(ChunkedPrint &chunked) {
   tagLabelDiv(chunked, F("Data Packets"));
   static const __FlashStringHelper *optionsList[] = {
     F("Always Send (~770ms cycle)"),
-    F("If Payload Changed or When Counters Requested"),
+    F("If Payload Changed or Counters Requested"),
     F("Only If Payload Changed")
   };
   tagSelect(chunked, POST_DATA_PACKETS, optionsList, 3, data.config.sendDataPackets);
@@ -615,13 +623,32 @@ void tagInputNumber(ChunkedPrint &chunked, const byte name, uint16_t min, uint16
   chunked.print(F(" min="));
   chunked.print(min);
   chunked.print(F(" max="));
-  chunked.print(max);
+  if (name == POST_HYSTERESIS) {
+    chunked.print(max / 10);
+    chunked.print(F(".0"));
+    // chunked.print(max % 10);
+  } else {
+    chunked.print(max);
+  }
   chunked.print(F(" value="));
-  chunked.print(value);
+  if (name == POST_HYSTERESIS) {
+    chunked.print(value / 10);
+    chunked.print(F(","));
+    chunked.print(value % 10);
+    chunked.print(F(" step=.1"));
+  } else {
+    chunked.print(value);
+  }
   chunked.print(F("> ("));
   chunked.print(min);
   chunked.print(F("~"));
-  chunked.print(max);
+  if (name == POST_HYSTERESIS) {
+    chunked.print(max / 10);
+    chunked.print(F(",0"));
+    // chunked.print(max % 10);
+  } else {
+    chunked.print(max);
+  }
   chunked.print(F(") "));
   chunked.print(units);
 }
@@ -850,19 +877,55 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
         }
       }
       break;
-#endif /* ENABLE_EXTENDED_WEBUI */
-    case JSON_DAIKIN_INDOOR:
-      {
-        chunked.print(daikinIndoor);
-      }
-      break;
-#ifdef ENABLE_EXTENDED_WEBUI
     case JSON_DAIKIN_OUTDOOR:
       {
         chunked.print(daikinOutdoor);
       }
       break;
+    case JSON_P1P2_STATS_DATE:
+      {
+        stringDate(chunked, data.statsDate);
+      }
+      break;
+    case JSON_P1P2_STATS:
+      {
+        chunked.print(data.p1p2Cnt[P1P2_READ_OK]);
+        chunked.print(F(" Read OK<br>"));
+        chunked.print(data.p1p2Cnt[P1P2_READ_ERROR]);
+        chunked.print(F(" Read Error<br>"));
+        chunked.print(data.p1p2Cnt[P1P2_WRITE_OK]);
+        chunked.print(F(" Write OK<br>"));
+        chunked.print(data.p1p2Cnt[P1P2_WRITE_ERROR]);
+        chunked.print(F(" Write Error"));
+      }
+      break;
 #endif /* ENABLE_EXTENDED_WEBUI */
+    case JSON_OTHER_CONTROLLERS:
+      {
+        bool availableSlot = false;
+        for (byte i = 0; i < 16; i++) {
+          if ((FxRequests[i] == 0)                          // Skip address Fx if no 00Fx30 request was made (address Fx not supported by the pump)
+              || ((0xF0 | i) == controllerAddr)) continue;  // Skip address Fx if this device uses address Fx
+          if (FxRequests[i] < 0) {
+            chunked.print(F("Another device is connected"));
+          } else if (FxRequests[i] == F0THRESHOLD) {
+            chunked.print(F("Additional device can be connected"));
+            availableSlot = true;
+          }
+          chunked.print(F(" (address 0xF"));
+          chunked.print(i, HEX);
+          chunked.print(F(")<br>"));
+        }
+        if (!availableSlot) {
+          chunked.print(F("Additional device not supported by the pump"));
+        }
+      }
+      break;
+    case JSON_DAIKIN_INDOOR:
+      {
+        chunked.print(daikinIndoor);
+      }
+      break;
     case JSON_DATE:
       {
         stringDate(chunked, date);
@@ -876,7 +939,7 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
     case JSON_DAIKIN_EEPROM:
       {
         chunked.print(data.eepromDaikin.total);
-        chunked.print(F(" Command OK<br>"));
+        chunked.print(F(" Commands Sent<br>"));
         chunked.print(data.eepromDaikin.dropped);
         chunked.print(F(" Dropped<br>"));
         chunked.print(data.eepromDaikin.invalid);
@@ -909,7 +972,7 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
             availableSlot = true;
           }
         }
-        chunked.print(F("This device is connected "));
+        chunked.print(F("Connected "));
         if (controllerAddr > CONNECTING) {  // controller is connected
           chunked.print(F("(address 0x"));
           chunked.print(controllerAddr, HEX);
@@ -927,24 +990,6 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
             }
           }
         }
-        chunked.print(F("<br>"));
-#ifdef ENABLE_EXTENDED_WEBUI
-        for (byte i = 0; i < 16; i++) {
-          if ((FxRequests[i] == 0)                          // Skip address Fx if no 00Fx30 request was made (address Fx not supported by the pump)
-              || ((0xF0 | i) == controllerAddr)) continue;  // Skip address Fx if this device uses address Fx
-          if (FxRequests[i] < 0) {
-            chunked.print(F("Another device is connected"));
-          } else if (FxRequests[i] == F0THRESHOLD) {
-            chunked.print(F("Additional device can be connected"));
-          }
-          chunked.print(F(" (address 0xF"));
-          chunked.print(i, HEX);
-          chunked.print(F(")<br>"));
-        }
-#endif /* ENABLE_EXTENDED_WEBUI */
-        if (!availableSlot) {
-          chunked.print(F("Additional device not supported by the pump"));
-        }
       }
       break;
     case JSON_WRITE_P1P2:
@@ -954,23 +999,6 @@ void jsonVal(ChunkedPrint &chunked, const byte JSONKEY) {
           chunked.print(F(" disabled"));
         }
         chunked.print(F(">"));
-      }
-      break;
-    case JSON_P1P2_STATS_DATE:
-      {
-        stringDate(chunked, data.statsDate);
-      }
-      break;
-    case JSON_P1P2_STATS:
-      {
-        chunked.print(data.p1p2Cnt[P1P2_READ_OK]);
-        chunked.print(F(" Read OK<br>"));
-        chunked.print(data.p1p2Cnt[P1P2_READ_ERROR]);
-        chunked.print(F(" Error<br>"));
-        chunked.print(data.p1p2Cnt[P1P2_WRITE_OK]);
-        chunked.print(F(" Write OK<br>"));
-        chunked.print(data.p1p2Cnt[P1P2_WRITE_ERROR]);
-        chunked.print(F(" Error"));
       }
       break;
     default:

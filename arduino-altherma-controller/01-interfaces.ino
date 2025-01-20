@@ -256,7 +256,9 @@ void manageController() {
   if (controllerAddr == DISCONNECTED || controllerAddr == CONNECTING) {
     cmdQueue.clear();
     indoorInQueue = false;
+#ifdef ENABLE_EXTENDED_WEBUI
     outdoorInQueue = false;
+#endif /* ENABLE_EXTENDED_WEBUI */
   }
   if (controllerAddr == DISCONNECTED || (controllerAddr == CONNECTING && data.config.controllerMode == CONTROL_AUTO)) {
     connectionTimer.sleep(data.config.connectTimeout * 1000UL);

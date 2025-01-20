@@ -66,14 +66,16 @@ Observations show that a few hundred parameters can be exchanged via packet type
 
 ### Packet type 0x35
 
-| Parameter number | Description              | Data type | Byte: description              |
-| ---------------- | ------------------------ | --------- | ------------------------------ |
-| 03               | Silent mode              | u8        | 0x00: off<br>0x01: on          |
-| 2F               | LWT control              | u8        | 0x00: off<br/>0x01: on         |
-| 31               | Room temperature control | u8        | 0x00: off<br/>0x01: on         |
-| 3A*              | Heating/cooling          | u8        | 0x01: heating<br>0x02: cooling |
-| 40               | DHW control              | u8        | 0x00: off<br/>0x01: on         |
-| 48               | DHW boost                | u8        | 0x00: off<br/>0x01: on         |
+| Parameter number | Description              | Applies for | Data type | Byte: description              |
+| ---------------- | ------------------------ | ----------- | --------- | ------------------------------ |
+| 03               | Quiet mode               |             | u8        | 0x00: off<br>0x01: on         |
+| 2F               | Climate control          | LWT mode    | u8        | 0x00: off<br/>0x01: on         |
+| 31               | Climate control          | RT mode     | u8        | 0x00: off<br/>0x01: on         |
+| 3A*              | Heating/cooling          |             | u8        | 0x01: heating<br>0x02: cooling |
+| 36               | Defrost request          |             | u8        | 0x00: off<br>0x01: on (request) |
+| 40               | DHW control              |             | u8        | 0x00: off<br/>0x01: on         |
+| 48               | DHW boost                |             | u8        | 0x00: off<br/>0x01: on         |
+| 56               | Weather dependent / Fixed mode | LWT mode | u8        | 0x00: fixed<br/>0x01: weather dep.<br>0x02: fixed+scheduled<br>0x03: weather dep.+scheduled         |
 
 *not working correctly, use packet type 0x3A, parameter 4E instead
 
@@ -81,18 +83,21 @@ Observations show that a few hundred parameters can be exchanged via packet type
 
 All temperature values in this table are in 0.1 °C resolution.
 
-| Parameter number | Description                              | Data type | Byte: description |
-| ---------------- | ---------------------------------------- | --------- | ----------------- |
-| 00               | Room temperature setpoint                | s16       |                   |
-| 03               | DHW setpoint                             | s16       |                   |
-| 06*              | LWT setpoint (main zone)                 | s16       |                   |
-| 08**             | LWT setpoint deviation (main zone)       | s16       |                   |
-| 0B*              | LWT setpoint (additional zone)           | s16       |                   |
-| 0D**             | LWT setpoint deviation (additional zone) | s16       |                   |
+| Parameter number | Description                              | Applies for | Data type | Byte: description |
+| ---------------- | ---------------------------------------- | ----------- | --------- | ----------------- |
+| 00               | Room heating setpoint                    | RT mode     | s16       |                   |
+| 01               | Room cooling setpoint                    | RT mode     | s16       |                   |
+| 03               | DHW setpoint                             |             | s16       |                   |
+| 06               | LWT heating setpoint (main zone)         | LWT - Fixed mode | s16       |                   |
+| 07               | LWT cooling setpoint (main zone)         | LWT - Fixed mode | s16       |                   |
+| 08               | LWT heating deviation (main zone)        | LWT - WD mode | s16       |                   |
+| 09               | LWT cooling deviation (main zone)        | LWT - WD mode | s16       |                   |
+| 0B               | LWT heating setpoint (additional zone)   | LWT - Fixed mode | s16       |                   |
+| 0C               | LWT cooling setpoint (additional zone)   | LWT - Fixed mode | s16       |                   |
+| 0D               | LWT heating deviation (additional zone)  | LWT - WD mode | s16       |                   |
+| 0E               | LWT cooling deviation (additional zone)  | LWT - WD mode | s16       |                   |
 
-*applies only in Fixed LWT mode
 
-**applies only in Weather dep. LWT mode
 
 ### Packet type 0x3A
 
@@ -105,11 +110,11 @@ All temperature values in this table are in 0.1 °C resolution.
 | 3F               | Temperature units      | u8        | 0x00: °F<br/>0x01: °C                                        |
 | 40               | Energy units           | u8        | 0x00: kWh<br/>0x01: MBtu                                     |
 | 4B               | Daylight saving time   | u8        | 0x00: manual<br>0x01: auto                                   |
-| 4C               | Silent mode            | u8        | 0x00: auto<br/>0x01: off<br>0x02: on                         |
-| 4D               | Silent mode level      | u8        | 0x00: level 1<br/>0x01: level 2<br/>0x02: level 3            |
+| 4C               | Quiet mode             | u8        | 0x00: auto<br/>0x01: always off<br>0x02: on                         |
+| 4D               | Quiet mode level       | u8        | 0x00: level 1<br/>0x01: level 2<br/>0x02: level 3            |
 | 4E               | Operation mode         | u8        | 0x00: heating<br/>0x01: cooling<br/>0x02: auto               |
 | 5B               | Holiday                | u8        | 0x00: off<br>0x01: on                                        |
-| 5E               | Space heating schedule | u8        | 0x00: Predefined 1<br>0x01: Predefined 2<br>0x02: Predefined 3<br>0x03: User defined 1<br>0x04: User defined 2<br>0x05: User defined 3<br>0x06: No schedule<br> |
-| 5F               | Space cooling schedule | u8        | 0x00: Predefined 1<br>0x01: Predefined 2<br>0x02: Predefined 3<br>0x03: User defined 1<br>0x04: No schedule<br/> |
+| 5E               | Heating schedule       | u8        | 0x00: Predefined 1<br>0x01: Predefined 2<br>0x02: Predefined 3<br>0x03: User defined 1<br>0x04: User defined 2<br>0x05: User defined 3<br>0x06: No schedule<br> |
+| 5F               | Cooling schedule       | u8        | 0x00: Predefined 1<br>0x01: Predefined 2<br>0x02: Predefined 3<br>0x03: User defined 1<br>0x04: No schedule<br/> |
 | 64               | DHW schedule           | u8        | 0x00: Predefined 1<br>0x01: Predefined 2<br>0x02: Predefined 3<br>0x03: User defined 1<br>0x04: No schedule |
 
