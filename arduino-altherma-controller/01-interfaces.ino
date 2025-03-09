@@ -250,54 +250,55 @@ void disconSocket(byte s) {
 */
 /**************************************************************************/
 void manageController() {
+  uint8_t controllerState = controllerAddr;
+  // Reset FxRequests periodically
   if (p1p2Timer.isOver()) {
     memset(FxRequests, 0, sizeof(FxRequests));
   }
-  if (controllerAddr == DISCONNECTED || controllerAddr == CONNECTING) {
+  // Handle disconnected or connecting states
+  if (controllerState <= CONNECTING) {
     cmdQueue.clear();
-    indoorInQueue = false;
-#ifdef ENABLE_EXTENDED_WEBUI
-    outdoorInQueue = false;
-#endif /* ENABLE_EXTENDED_WEBUI */
-  }
-  if (controllerAddr == DISCONNECTED || (controllerAddr == CONNECTING && data.config.controllerMode == CONTROL_AUTO)) {
-    connectionTimer.sleep(data.config.connectTimeout * 1000UL);
-    if (data.config.controllerMode == CONTROL_AUTO) {
-      controllerAddr = CONNECTING;
+    counterRequestTimer.sleep(0);
+    daikinNameTimer.sleep(0);
+    if (controllerState == DISCONNECTED || (controllerState == CONNECTING && data.config.controllerMode == CONTROL_AUTO)) {
+      connectionTimer.sleep(data.config.connectTimeout * 1000UL);
+      if (data.config.controllerMode == CONTROL_AUTO) {
+        controllerAddr = CONNECTING;
+      }
     }
   }
+  // Update controller address based on connection timer
   if (connectionTimer.isOver()) {
-    if (data.config.controllerMode == CONTROL_AUTO) {
-      controllerAddr = CONNECTING;
-    } else {
-      controllerAddr = DISCONNECTED;
-    }
+    controllerAddr = (data.config.controllerMode == CONTROL_AUTO) ? CONNECTING : DISCONNECTED;
   }
-  if (controllerAddr > CONNECTING                       // Send counter requests only if controller in Write mode (after 00Fx30 request + 40Fx30 reply)
-      || data.config.controllerMode == CONTROL_AUTO) {  // Or if Write to P1P2 is set to Automatically
+  // Handle Write mode or Auto mode
+  if (controllerAddr > CONNECTING || data.config.controllerMode == CONTROL_AUTO) {
+    // Handle counter requests
     if (counterRequestTimer.isOver()) {
       counterRequestTimer.sleep(data.config.counterPeriod * 60UL * 1000UL);
       cmdQueue.push(2);
       cmdQueue.push(PACKET_TYPE_COUNTER);
       cmdQueue.push(0);
       if (data.config.sendDataPackets == DATA_CHANGE_AND_REQUEST) {
-        memset(savedPackets, 0xFF, sizeof(savedPackets));  // reset saved packets
+        memset(savedPackets, 0xFF, sizeof(savedPackets));  // Reset saved packets
       }
     }
-    if (daikinIndoor[0] == '\0' && indoorInQueue == false) {
-      cmdQueue.push(2);
-      cmdQueue.push(PACKET_TYPE_INDOOR_NAME);
-      cmdQueue.push(0);
-      indoorInQueue = true;
-    }
+    // Handle Daikin names
+    if (daikinNameTimer.isOver()) {
+      daikinNameTimer.sleep(60UL * 1000UL);
+      if (daikinIndoor[0] == '\0') {
+        cmdQueue.push(2);
+        cmdQueue.push(PACKET_TYPE_INDOOR_NAME);
+        cmdQueue.push(0);
+      }
 #ifdef ENABLE_EXTENDED_WEBUI
-    if (daikinOutdoor[0] == '\0' && outdoorInQueue == false) {
-      cmdQueue.push(2);
-      cmdQueue.push(PACKET_TYPE_OUTDOOR_NAME);
-      cmdQueue.push(0);
-      outdoorInQueue = true;
+      if (daikinOutdoor[0] == '\0') {
+        cmdQueue.push(2);
+        cmdQueue.push(PACKET_TYPE_OUTDOOR_NAME);
+        cmdQueue.push(0);
+      }
+#endif
     }
-#endif /* ENABLE_EXTENDED_WEBUI */
   }
 }
 

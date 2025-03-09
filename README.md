@@ -107,10 +107,15 @@ This controller has a built-in webserver that allows you to configure the contro
   - can not control Altherma by sending commands via UDP
 * **Connected (address 0xF..)**. This Arduino device is connected to the P1/P2 bus for both reading and writing (sending commands). The controller can write to the P1/P2 bus only after it has been allocated an address by the heat pump (Arduino will accept any address in the 0xF0 ~ 0xFF range). If your **Enable Write to P1P2** setting is set to *Manually*, you can manually disable write mode (release the address) and downgrade the connection to read only.
 
-**External Controllers**. Shows all external controller connected to the P1/P2 bus (incl. their addresses) and provides info whether additional controller is supported by your heat pump. These messages can show up:
+**Other Controllers**. Shows all other external controllers connected to the P1/P2 bus (incl. their addresses) and provides info whether additional controller is supported by your heat pump. These messages can show up:
 * **Another device is connected (address 0xF..)**. Another device is connected to the P1/P2 bus using address 0xF.. This "another device" can be second Arduino device, commercial controller by Daikin or by third party (Daikin LAN adapter, Daikin Madoka, DCOM LT/MB, Zennio KLIC-DA KNX, Coolmaster, etc.).
 * **Additional device can be connected (address 0xF..)**. Additional device can be connected to the P1/P2 bus. How many devices can be connected (ie. how many addresses are available for external devices) depends on the model of the heat pump. For example, Altherma LT supports only 1 device (address 0xF0), Altherma 3 support up to 3 devices (addresses 0xF0, 0xF1 and 0xFF).
 * **Additional device not supported by the pump**. All available addresses have been allocated to external controllers. The heat pump (the main Daikin controller) does not support additional device on the P1/P2 bus.
+
+**Write Command**. You can send a P1/P2 write command directly from web interface, for testing or reverse-engineering P1/P2 write commands. For the list of commands identified in the P1/P2 protocol (through reverse engineering) see [Payload-data-write.md](Payload-data-write.md). The format of the write command send via web interface is identical to the command sent via UDP:
+* **Packet Type**. The first byte is the packet type. Only supported packet types are listed in the drop-down menu.
+* **Param**. Parameter number, two bytes **<ins>in little endian format</ins>**! For example, parameter number 03 is inserted as `03` `00`.
+* **Value**. Parameter value, the number of bytes differs for various packet types. See PACKET_PARAM_VAL_SIZE in advanced settings for the correct number of bytes. Value is also **<ins>in little endian format</ins>**!
 
 **Daikin EEPROM Writes**. Every time you send **Write Command** through the web interface or a command via UDP, settings of the main Daikin controller (= controller on your heat pump) change and new values are written to its internal EEPROM. **<ins>Your main Daikin controller's EEPROM has a limited number of writes, so keep an eye on this counter in order to prevent EEPROM wear! It is adviced to do max 7000 writes per year (19 writes/day on average)</ins>**.
 * **Stats since ...**. Date and time since when **Daikin EEPROM Writes** are recorded. If you significantly change the date on the heat pump, reset the stats (so that **Average per Day** is calculated properly).
@@ -123,11 +128,6 @@ This controller has a built-in webserver that allows you to configure the contro
 * **Daily Average**. Daily average EEPROM writes, should be below 19. Calculated from internal date of the heat pump, so if you change the date in heat pump settings, it is recommended to reset the Daikin EEPROM Writes counter.
 * **Yesterday**. Number of writes made yesterday, updated at midnight. Should not significantly exceed average writes per day.
 * **Today**. Number of writes made today out of daily **EEPROM Write Quota**. If you reach the quota and you still need to send a P1/P2 write command, you can  **Clear Quota**
-
-**Write Command**. You can send a P1/P2 write command directly from web interface, for testing or reverse-engineering P1/P2 write commands. For the list of commands identified in the P1/P2 protocol (through reverse engineering) see [Payload-data-write.md](Payload-data-write.md). The format of the write command send via web interface is identical to the command sent via UDP:
-* **Packet Type**. The first byte is the packet type. Only supported packet types are listed in the drop-down menu.
-* **Param**. Parameter number, two bytes **<ins>in little endian format</ins>**! For example, parameter number 03 is inserted as `03` `00`.
-* **Value**. Parameter value, the number of bytes differs for various packet types. See PACKET_PARAM_VAL_SIZE in advanced settings for the correct number of bytes. Value is also **<ins>in little endian format</ins>**!
 
 **P1P2 Packets**.\*\* Counters for packets read from the P1/P2 bus or written to the P1/P2 bus. If any of the counters rolls over the unsigned long maximum (4,294,967,295), all counters will reset to 0.
 * **Read OK**. Number of packets read from the P1/P2 bus, without errors. Not all of them are sent via UDP (see the **Packet Filter** settings). Packets are read from the P1/P2 bus (and sent via UDP) even if the controller is not connected to the P1/P2 bus.

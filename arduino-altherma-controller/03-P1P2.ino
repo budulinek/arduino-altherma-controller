@@ -204,7 +204,7 @@ void processWrite(uint16_t n) {
         data.eepromDaikin.dropped++;
       }
     } else {
-      // TODO error
+      data.eepromDaikin.invalid++;
     }
     updateEeprom();  // TODO is it really needed? Writes data to Arduino EEPROM whenever a command is written to the P1/P2 bus (& to the Daikin EEPROM)
     deleteCmd();     // delete cmd in Queue
@@ -218,18 +218,13 @@ void processWrite(uint16_t n) {
           for (byte i = 5; i < n; i++) WB[i] = 0x00;  // default response for the rest of the packet
           // 00F030 request message received, we will:
           // - reply with 40F030 response
-          // - hijack every 2nd time slot to send request counters
-          static bool hijack = true;  // allow hijack
+          // - hijack time slot to send request counters
           if (cmdType >= PACKET_TYPE_CONTROL[FIRST] && cmdType <= PACKET_TYPE_CONTROL[LAST]) {
             // in: 17 byte; out: 17 byte; answer WB[7] should contain a 01 if we want to communicate a new setting in packet type 3X
             // set byte WB[7] to 0x01 for triggering F035 and byte WB[8] to 0x01 for triggering F036, etc.
-            byte pos = (PACKET_TYPE_HANDSHAKE + 12) - cmdType;
+            byte pos = (cmdType - PACKET_TYPE_HANDSHAKE) + 2;
             if (pos >= 3 && pos < n) WB[pos] = 0x01;
-            hijack = true;
-          } else if (hijack == false) {
-            hijack = true;
-          } else if (cmdLen > 0) {  // some command is in queue
-            hijack = false;
+          } else if (!div2 && cmdLen > 0) {  // some other command is in queue
             WB[0] = 0x00;
             WB[1] = 0x00;
             n = cmdLen + 2;
@@ -241,26 +236,18 @@ void processWrite(uint16_t n) {
               n = sizeof(WB);
               // TODO error
             }
-            switch (cmdType) {
-              case PACKET_TYPE_COUNTER:
-                if (cmdQueue[2] < 5) {
-                  cmdQueue.push(cmdLen);
-                  cmdQueue.push(cmdType);
-                  cmdQueue.push(cmdQueue[2] + 1);
-                }
-                break;
-              case PACKET_TYPE_INDOOR_NAME:
-                indoorInQueue = false;
-                break;
-#ifdef ENABLE_EXTENDED_WEBUI
-              case PACKET_TYPE_OUTDOOR_NAME:
-                outdoorInQueue = false;
-                break;
-#endif /* ENABLE_EXTENDED_WEBUI */
-              default:
-                break;
+            if (cmdType == PACKET_TYPE_COUNTER) {
+              if (cmdQueue[2] < 5) {
+                cmdQueue.push(cmdLen);
+                cmdQueue.push(cmdType);
+                cmdQueue.push(cmdQueue[2] + 1);
+              }
             }
+            div2 = 2;
             deleteCmd();  // delete cmd in Queue
+          }
+          if (div2) {  // insert counterRequest messages and other commands at end of each 2nd cycle
+            div2--;
           }
         }
         break;

@@ -82,8 +82,7 @@ const uint16_t INIT_SDTO = 2500;  // P1/P2 write time-out delay (ms)
 const byte CTRL_ID[] = { 0xB4, 0x10 };  // LAN adapter ID in 0x31 payload bytes 7 and 8
 
 const byte MAC_START[3] = { 0x90, 0xA2, 0xDA };  // MAC range for Gheo SA
-#define ETH_RESET_PIN 7                          // Ethernet shield reset pin (deals with power on reset issue on low quality ethernet shields) \
-                                                 // Comment out to disable the functionality
+#define ETH_RESET_PIN 7                          // Ethernet shield reset pin (deals with power on reset issue on low quality ethernet shields)
 const uint16_t ETH_RESET_DELAY = 500;            // Delay (ms) during Ethernet start, wait for Ethernet shield to start (reset issue on low quality ethernet shields)
 const uint16_t WEB_IDLE_TIMEOUT = 400;           // Time (ms) from last client data after which webserver TCP socket could be disconnected, non-blocking.
 const uint16_t TCP_DISCON_TIMEOUT = 500;         // Timeout (ms) for client DISCON socket command, non-blocking alternative to https://www.arduino.cc/reference/en/libraries/ethernet/client.setconnectiontimeout/

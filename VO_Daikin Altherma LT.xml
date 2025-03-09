@@ -1,22 +1,65 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <VirtualOut Title="Daikin Altherma LT" Comment="" Address="/dev/udp/192.168.1.254/10000" CmdInit="" CloseAfterSend="false" CmdSep=";">
-	<Info templateType="3" minVersion="14000328"/>
-	<VirtualOutCmd Title="DHW_Boost_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x48\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x48\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="false" Repeat="0" RepeatRate="0"/>
-	<VirtualOutCmd Title="Quiet_Mode_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x03\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x03\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="false" Repeat="0" RepeatRate="0"/>
-	<VirtualOutCmd Title="LWT_Control_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x2F\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x2F\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="false" Repeat="0" RepeatRate="0"/>
-	<VirtualOutCmd Title="DHW_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x40\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x40\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="false" Repeat="0" RepeatRate="0"/>
-	<VirtualOutCmd Title="Room_Temperature_Control_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x31\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x31\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="false" Repeat="0" RepeatRate="0"/>
-	<VirtualOutCmd Title="Target_Setpoint_LWT_Zone_Main" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x06\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
-	<VirtualOutCmd Title="Target_Setpoint_LWT_Zone_Add" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x0B\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
-	<VirtualOutCmd Title="Target_Temperature_DHW" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x03\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
-	<VirtualOutCmd Title="Target_Temperature_Room" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x00\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
-	<VirtualOutCmd Title="Deviation_LWT_Zone_Main" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x08\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
-	<VirtualOutCmd Title="Deviation_LWT_Zone_Add" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x0D\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
-	<VirtualOutCmd Title="Holiday_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x5B\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x3A\x5B\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="false" Repeat="0" RepeatRate="0"/>
-	<VirtualOutCmd Title="Quiet_Mode" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x4C\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
-	<VirtualOutCmd Title="Quiet_Level" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x4D\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
-	<VirtualOutCmd Title="Mode_Cooling_Heating" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x4E\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
-	<VirtualOutCmd Title="Schedule_Heating" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x5E\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
-	<VirtualOutCmd Title="Schedule_Cooling" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x5F\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
-	<VirtualOutCmd Title="Schedule_DHW" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x64\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
+	<Info templateType="3" minVersion="15050304"/>
+	<VirtualOutCmd Title="DHW_Boost_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x48\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x48\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="" Analog="false" Repeat="0" RepeatRate="0"/>
+	<VirtualOutCmd Title="Quiet_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x03\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x03\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="" Analog="false" Repeat="0" RepeatRate="0"/>
+	<VirtualOutCmd Title="Heating_OnOff_LWT" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x2F\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x2F\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="Heating/Cooling On/Off (LWT mode)" Analog="false" Repeat="0" RepeatRate="0"/>
+	<VirtualOutCmd Title="DHW_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x40\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x40\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="" Analog="false" Repeat="0" RepeatRate="0"/>
+	<VirtualOutCmd Title="Heating_OnOff_Room" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x31\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x31\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="Heating/Cooling On/Off (Room Thermostat  mode)" Analog="false" Repeat="0" RepeatRate="0"/>
+	<VirtualOutCmd Title="LWT_Main_Zone_Heating" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x06\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="only in Fixed mode" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
+	<VirtualOutCmd Title="LWT_Add_Zone_Heating" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x0B\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="only in Fixed mode" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
+	<VirtualOutCmd Title="DHW_Setpoint" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x03\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
+	<VirtualOutCmd Title="Room_Heating_Setpoint" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x00\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="only in Room Thermostat (RT) mode" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
+	<VirtualOutCmd Title="LWT_Main_Zone_Heating_Deviation" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x08\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="only in Weather Dependent (WD) mode" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
+	<VirtualOutCmd Title="LWT_Add_Zone_Heating_Deviation" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x0D\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="only in Weather Dependent (WD) mode" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
+	<VirtualOutCmd Title="Holiday_OnOff" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x5B\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x3A\x5B\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="" Analog="false" Repeat="0" RepeatRate="0"/>
+	<VirtualOutCmd Title="Quiet_Mode" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x4C\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="0: Auto
+1: Off
+2: On" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
+	<VirtualOutCmd Title="Quiet_Level" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x4D\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="0: Level 1
+1: Level 2
+2: Level 3 (most silent)" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
+	<VirtualOutCmd Title="Mode_Cooling_Heating" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x4E\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="0: Heating
+1: Cooling
+2: Auto" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
+	<VirtualOutCmd Title="Schedule_Heating" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x5E\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="0: Predefined 1
+1: Predefined 2
+2: Predefined 3
+3: User defined 1
+4: User defined 2
+5: User defined 3
+6: No schedule
+" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
+	<VirtualOutCmd Title="Schedule_Cooling" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x5F\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="0: Predefined 1
+1: Predefined 2
+2: Predefined 3
+3: User defined 1
+4: No schedule" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
+	<VirtualOutCmd Title="Schedule_DHW" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x64\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="0: Predefined 1
+1: Predefined 2
+2: Predefined 3
+3: User defined 1
+4: No schedule" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
+	<VirtualOutCmd Title="Room_Cooling_Setpoint" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x01\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="only in Room Thermostat (RT) mode" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
+	<VirtualOutCmd Title="LWT_Main_Zone_Cooling" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x07\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="only in Fixed mode" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
+	<VirtualOutCmd Title="LWT_Main_Zone_Cooling_Deviation" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x09\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="only in Weather Dependent (WD) mode" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
+	<VirtualOutCmd Title="LWT_Add_Zone_Cooling_Deviation" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x0E\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="only in Weather Dependent (WD) mode" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
+	<VirtualOutCmd Title="LWT_Add_Zone_Cooling" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x36\x0C\x00\1\2" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="only in Fixed mode" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="10"/>
+	<VirtualOutCmd Title="Defrost_Request" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x36\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x36\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="defrost start is subject to outdoor unit conditions" Analog="false" Repeat="0" RepeatRate="0"/>
+	<VirtualOutCmd Title="LWT_Weather_Fixed" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x56\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="LWT setpoint mode
+0: Fixed
+1: Weather dependent
+2: Fixed + scheduled
+3: Weather dependent + scheduled" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
+	<VirtualOutCmd Title="Preset_Mode" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x49\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="0: Schedule
+1: Eco
+2: Comfort" Analog="true" Repeat="0" RepeatRate="0" SourceValHigh="1" DestValHigh="1"/>
+	<VirtualOutCmd Title="Preset_Room_Heating_Comfort" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x47\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="" Analog="true" Repeat="0" RepeatRate="0" DestValLow="32" SourceValHigh="1" DestValHigh="34"/>
+	<VirtualOutCmd Title="Preset_Room_Heating_Eco" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x48\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="" Analog="true" Repeat="0" RepeatRate="0" DestValLow="32" SourceValHigh="1" DestValHigh="34"/>
+	<VirtualOutCmd Title="Preset_Room_Cooling_Comfort" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x45\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="" Analog="true" Repeat="0" RepeatRate="0" DestValLow="32" SourceValHigh="1" DestValHigh="34"/>
+	<VirtualOutCmd Title="Preset_Room_Cooling_Eco" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x46\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="" Analog="true" Repeat="0" RepeatRate="0" DestValLow="32" SourceValHigh="1" DestValHigh="34"/>
+	<VirtualOutCmd Title="Preset_LWT_Dev_Heating_Comfort" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x39\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="" Analog="true" Repeat="0" RepeatRate="0" DestValLow="32" SourceValHigh="1" DestValHigh="34"/>
+	<VirtualOutCmd Title="Preset_LWT_Dev_Heating_Eco" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x3A\x3A\x00\1" CmdOnHTTP="" CmdOnPost="" CmdOff="" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="" Analog="true" Repeat="0" RepeatRate="0" DestValLow="32" SourceValHigh="1" DestValHigh="34"/>
+	<VirtualOutCmd Title="DHW_Disinfection" Comment="" CmdOnMethod="GET" CmdOffMethod="GET" CmdOn="\x35\x4B\x00\x01" CmdOnHTTP="" CmdOnPost="" CmdOff="\x35\x4B\x00\x00" CmdOffHTTP="" CmdOffPost="" CmdAnswer="" HintText="Works only if disinfection enabled
+in heat pump settings." Analog="false" Repeat="0" RepeatRate="0"/>
 </VirtualOut>

@@ -33,9 +33,7 @@ void recvUdp() {
 void checkCommand(byte command[], byte cmdLen) {
   // Validate packet type and parameter size
   byte packetIndex = command[0] - PACKET_TYPE_CONTROL[FIRST];
-  if (command[0] < PACKET_TYPE_CONTROL[FIRST] || command[0] > PACKET_TYPE_CONTROL[LAST] || 
-      PACKET_PARAM_VAL_SIZE[packetIndex] == 0 || 
-      cmdLen - 3 != PACKET_PARAM_VAL_SIZE[packetIndex]) {
+  if (command[0] < PACKET_TYPE_CONTROL[FIRST] || command[0] > PACKET_TYPE_CONTROL[LAST] || PACKET_PARAM_VAL_SIZE[packetIndex] == 0 || cmdLen - 3 != PACKET_PARAM_VAL_SIZE[packetIndex]) {
     data.eepromDaikin.invalid++;  // Write Command Invalid
     return;
   }

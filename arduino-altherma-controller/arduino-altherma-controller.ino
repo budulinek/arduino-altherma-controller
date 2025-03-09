@@ -12,7 +12,8 @@
                   improved automatic connection to the P1P2 bus, connect to any peripheral address
                   between 0xF0 to 0xFF (depends on Altherma model), show other controllers and available addresses.
   v4.0 2025-XX-XX CSS improvement, code optimization (with some help from ChatGPT), simplify P1P2 Status page,
-                  target temp. hysteresis in decimals, fix 404 error page
+                  target temp. hysteresis in decimals, fix 404 error page, bugfix 0x30 packet,
+                  more virtual outputs in Loxone Config, rename some inputs in Loxone Config
 */
 
 const byte VERSION[] = { 4, 0 };
@@ -60,8 +61,10 @@ typedef struct {
   byte ip[4];
   byte subnet[4];
   byte gateway[4];
+#ifdef ENABLE_DHCP
   byte dns[4];      // only used if ENABLE_DHCP
   bool enableDhcp;  // only used if ENABLE_DHCP
+#endif
   byte remoteIp[4];
   bool udpBroadcast;
   uint16_t udpPort;
@@ -83,8 +86,10 @@ const config_t DEFAULT_CONFIG = {
   DEFAULT_STATIC_IP,
   DEFAULT_SUBMASK,
   DEFAULT_GATEWAY,
+#ifdef ENABLE_DHCP
   DEFAULT_DNS,
   DEFAULT_AUTO_IP,
+#endif
   DEFAULT_REMOTE_IP,
   DEFAULT_BROADCAST,
   DEFAULT_UDP_PORT,
@@ -181,6 +186,9 @@ Timer eepromTimer;          // timer to delay writing statistics to EEPROM
 Timer connectionTimer;      // timer to monitor connection status (connection to write to bus)
 Timer p1p2Timer;            // timer to monitor P1P2 messages (reading from bus)
 Timer counterRequestTimer;  // timer for 0xB8 counter requests
+Timer daikinNameTimer;      // timer for requests for Daikin indoor and outdoor unit names (1 minute)
+byte counterRequest = 0;
+byte div2 = 0;
 
 enum state : byte {
   DISCONNECTED,
@@ -213,8 +221,6 @@ const byte PACKET_TYPE_HANDSHAKE = PACKET_TYPE_CONTROL[FIRST];
 
 const byte NAME_SIZE = 16;  // buffer size for device name
 char daikinIndoor[NAME_SIZE];
-bool indoorInQueue;  // request for an indoor name in queue
-//bool outdoorInQueue;  // request for an outdoor name in queue
 
 #ifdef ENABLE_EXTENDED_WEBUI
 char daikinOutdoor[NAME_SIZE];

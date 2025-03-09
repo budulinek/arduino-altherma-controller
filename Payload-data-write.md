@@ -55,10 +55,12 @@ Payload of these packets has specific structure, it contains pairs of **paramete
 
 The following data types were observed in the parameter values. Little endian bytes ordering is used in multi-byte data types:
 
-| Data type | Definition                          |
-| --------- | ----------------------------------- |
-| u8        | unsigned 8-bit integer 0 .. 255     |
-| s16       | signed 16-bit integer -32768..32767 |
+| Data type   | Definition (read)                     | Definition (write)                     |
+| ----------- | ------------------------------------- | ------------------------------------- |
+| u8          | unsigned 8-bit integer 0 .. 255       | |
+| s16         | signed 16-bit integer -32768..32767   | |
+| u8div2min16 | unsigned 8-bit integer 0 .. 255, divide by 2 and deduct 16 | multiply by 2 and add 32 |
+
 
 Explanation of **s16** format: a temperature of 21.5°C  is represented by the value of 215 in little endian format (0xD700). A temperature of  -1°C  is represented by the value of -10 in little endian format (0xF6FF).
 
@@ -105,13 +107,20 @@ All temperature values in this table are in 0.1 °C resolution.
 | ---------------- | ---------------------- | --------- | ------------------------------------------------------------ |
 | 00               | 12h/24h time format    | u8        | 0x00: 12h time format<br>0x01: 24h time format               |
 | 31               | Enable holiday ??      | u8        | ??                                                           |
+| 39               | Preset LWT deviation heating comfort | u8div2min16 |                                    |
+| 3A               | Preset LWT deviation heating eco     | u8div2min16 |                                    |
 | 3B               | Decimal delimiter      | u8        | 0x00: dot<br/>0x01: comma                                    |
 | 3D               | Flow units             | u8        | 0x00: l/min<br/>0x01: GPM                                    |
 | 3F               | Temperature units      | u8        | 0x00: °F<br/>0x01: °C                                        |
 | 40               | Energy units           | u8        | 0x00: kWh<br/>0x01: MBtu                                     |
+| 45               | Preset room cooling comfort | u8div2min16 |                                    |
+| 46               | Preset room cooling eco     | u8div2min16 |                                    |
+| 47               | Preset room heating comfort | u8div2min16 |                                    |
+| 48               | Preset room heating eco     | u8div2min16 |                                    |
+| 49               | Preset mode            | u8        | 0x00: schedule<br>0x01: eco<br>0x02: comfort                                   |
 | 4B               | Daylight saving time   | u8        | 0x00: manual<br>0x01: auto                                   |
 | 4C               | Quiet mode             | u8        | 0x00: auto<br/>0x01: always off<br>0x02: on                         |
-| 4D               | Quiet mode level       | u8        | 0x00: level 1<br/>0x01: level 2<br/>0x02: level 3            |
+| 4D               | Quiet mode level       | u8        | 0x00: level 1<br/>0x01: level 2<br/>0x02: level 3 (most silent)           |
 | 4E               | Operation mode         | u8        | 0x00: heating<br/>0x01: cooling<br/>0x02: auto               |
 | 5B               | Holiday                | u8        | 0x00: off<br>0x01: on                                        |
 | 5E               | Heating schedule       | u8        | 0x00: Predefined 1<br>0x01: Predefined 2<br>0x02: Predefined 3<br>0x03: User defined 1<br>0x04: User defined 2<br>0x05: User defined 3<br>0x06: No schedule<br> |
