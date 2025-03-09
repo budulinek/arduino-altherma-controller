@@ -10,7 +10,7 @@ static errorbuf_t EB[RB_SIZE];
 /**************************************************************************/
 void recvBus() {
   while (P1P2Serial.packetavailable()) {
-    uint16_t delta;
+    uint16_t delta = 0;
     errorbuf_t readError = 0;
     uint16_t nread = P1P2Serial.readpacket(RB, delta, EB, RB_SIZE, CRC_GEN, CRC_FEED);
     if (nread > RB_SIZE) {
@@ -192,7 +192,7 @@ void processWrite(uint16_t n) {
 
   // Write command from queue
   if (cmdLen && RB[2] == cmdType) {  // second byte in queue is packet type, compare to received packet type
-    if (2 + cmdLen <= n) {           // check if param size in queue is not larger than space available in packet
+    if ((cmdLen + 2U) <= n) {        // check if param size in queue is not larger than space available in packet
       if (data.eepromDaikin.today < data.config.writeQuota) {
         for (byte i = 0; i < cmdLen; i++) {
           WB[i + 2] = cmdQueue[i + 1];  // skip the first byte in the queue (cmdLen)
@@ -228,7 +228,7 @@ void processWrite(uint16_t n) {
             WB[0] = 0x00;
             WB[1] = 0x00;
             n = cmdLen + 2;
-            if (2 + cmdLen <= sizeof(WB)) {  // check if size in queue is not larger than space available in packet
+            if (n <= sizeof(WB)) {  // check if size in queue is not larger than space available in packet
               for (byte i = 0; i < (cmdLen - 1); i++) {
                 WB[i + 2] = cmdQueue[i + 1];  // skip the first byte in the queue (cmdLen)
               }

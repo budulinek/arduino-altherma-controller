@@ -11,7 +11,7 @@
   v3.0 2024-02-02 Function comments. Remove "Disabled" Controller mode (only Manual; Auto),
                   improved automatic connection to the P1P2 bus, connect to any peripheral address
                   between 0xF0 to 0xFF (depends on Altherma model), show other controllers and available addresses.
-  v4.0 2025-XX-XX CSS improvement, code optimization (with some help from ChatGPT), simplify P1P2 Status page,
+  v4.0 2025-03-09 CSS improvement, code optimization (with some help from ChatGPT), simplify P1P2 Status page,
                   target temp. hysteresis in decimals, fix 404 error page, bugfix 0x30 packet,
                   more virtual outputs in Loxone Config, rename some inputs in Loxone Config
 */
@@ -32,7 +32,6 @@ const byte VERSION[] = { 4, 0 };
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
 #include <util/atomic.h>
-
 
 enum first_last_t : byte {
   FIRST,
@@ -57,6 +56,8 @@ enum data_packets_t : byte {
   DATA_ONLY_CHANGE          // Only If Payload Changed
 };
 
+#include "advanced_settings.h"
+
 typedef struct {
   byte ip[4];
   byte subnet[4];
@@ -78,8 +79,6 @@ typedef struct {
   byte sendDataPackets;
   byte packetStatus[PACKET_LAST][256 / 8];
 } config_t;
-
-#include "advanced_settings.h"
 
 // default values for the web UI
 const config_t DEFAULT_CONFIG = {

@@ -8,6 +8,10 @@
 
 // #define ENABLE_DHCP  // Enable DHCP (Auto IP settings), consumes a lot of FLASH memory
 
+#if defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560)
+#define ENABLE_EXTENDED_WEBUI
+#define ENABLE_DHCP
+#endif
 
 /****** DEFAULT CONFIGURATION ******/
 /*
