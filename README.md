@@ -54,7 +54,7 @@ Get the hardware and connect together:
 
 * **Arduino Uno or Mega** (and possibly other boards with ATmega chips).<br>On Mega you have to configure Serial in advanced settings in the sketch.
 * **Ethernet shield with WIZnet chip (W5100, W5200 or W5500)**.<br>The ubiquitous W5100 shield for Uno/Mega is sufficient. If available, I recommend W5500 Ethernet Shield. You can also use combo board MCU + ethernet (such as ATmega328 + W5500 board from Keyestudio).<br>ATTENTION: Ethernet shields with ENC28J60 chip will not work !!!
-* **Custom P1P2 Uno adapter**.<br>You can [solder your own adapter](https://github.com/Arnold-n/P1P2Serial/tree/main/circuits#p1p2-adapter-as-arduino-uno-hat) or buy one from Arnold-n (his e-mail address can be found on line 3 of his library [P1P2Serial.cpp](https://github.com/Arnold-n/P1P2Serial/blob/main/P1P2Serial.cpp)).
+* **Custom P1P2 Uno adapter**.<br>You can [solder your own adapter](https://github.com/Arnold-n/P1P2Serial/tree/main/circuits#p1p2-adapter-as-arduino-uno-hat) or buy one from Arnold-n (his e-mail address can be found on line 3 of his library [P1P2MQTT.h](https://github.com/Arnold-n/P1P2MQTT/blob/main/P1P2MQTT.h#L3)).
 
 Here is my HW setup (cheap Arduino Uno clone + W5500 Ethernet shield from Keyestudio + custom P1P2 Uno adapter):
 
