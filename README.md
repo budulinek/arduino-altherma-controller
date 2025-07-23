@@ -23,7 +23,7 @@
 
 Allows you to connect your Daikin Altherma heat pump (P1/P2 bus) to a home automation system (such as Loxone). This controller reads data from the P1/P2 bus on your Daikin Altherma and forwards them via ethernet UDP. You can also control your Daikin Altherma by sending commands via ethernet UDP.
 
-The controller has a built-in web interface. You can use this web interface to configure the controller itself, monitor the status of the controller's connection to the P1/P2 bus and check error counters. All settings and P1/P2 statistics are stored in EEPROM. This program implements P1P2Serial library (https://github.com/Arnold-n/P1P2Serial).
+The controller has a built-in web interface. You can use this web interface to configure the controller itself, monitor the status of the controller's connection to the P1/P2 bus and check error counters. All settings and P1/P2 statistics are stored in EEPROM. This program implements the P1P2MQTT library (https://github.com/Arnold-n/P1P2MQTT).
 
 # Technical specifications
 
@@ -54,7 +54,7 @@ Get the hardware and connect together:
 
 * **Arduino Uno or Mega** (and possibly other boards with ATmega chips).<br>On Mega you have to configure Serial in advanced settings in the sketch.
 * **Ethernet shield with WIZnet chip (W5100, W5200 or W5500)**.<br>The ubiquitous W5100 shield for Uno/Mega is sufficient. If available, I recommend W5500 Ethernet Shield. You can also use combo board MCU + ethernet (such as ATmega328 + W5500 board from Keyestudio).<br>ATTENTION: Ethernet shields with ENC28J60 chip will not work !!!
-* **Custom P1P2 Uno adapter**.<br>You can [solder your own adapter](https://github.com/Arnold-n/P1P2Serial/tree/main/circuits#p1p2-adapter-as-arduino-uno-hat) or buy one from Arnold-n (his e-mail address can be found on line 3 of his library [P1P2MQTT.h](https://github.com/Arnold-n/P1P2MQTT/blob/main/P1P2MQTT.h#L3)).
+* **Custom P1P2 Uno adapter**.<br>You can [solder your own adapter](https://github.com/Arnold-n/P1P2MQTT/tree/main/doc/circuits#mm1192-based-arduino-uno-hat-old) or buy one from Arnold-n (his e-mail address can be found on line 3 of his library [P1P2MQTT.h](https://github.com/Arnold-n/P1P2MQTT/blob/main/P1P2MQTT.h#L3)).
 
 Here is my HW setup (cheap Arduino Uno clone + W5500 Ethernet shield from Keyestudio + custom P1P2 Uno adapter):
 
@@ -363,7 +363,7 @@ Not everything could fit into the limited flash memory of Arduino Nano / Uno. If
 
 As of April 2023:
 
-| **Project** | **[budulinek/<br>arduino-altherma-controller](https://github.com/budulinek/arduino-altherma-controller)** | **[Arnold-n/<br>P1P2Serial](https://github.com/Arnold-n/P1P2Serial)** | **[raomin/<br>ESPAltherma](https://github.com/raomin/ESPAltherma)** | **[tadasdanielius/<br>daikin_altherma](https://github.com/tadasdanielius/daikin_altherma)** | **[speleolontra/<br>daikin_residential_altherma](https://github.com/speleolontra/daikin_residential_altherma)** ||
+| **Project** | **[budulinek/<br>arduino-altherma-controller](https://github.com/budulinek/arduino-altherma-controller)** | **[Arnold-n/<br>P1P2MQTT](https://github.com/Arnold-n/P1P2MQTT)** | **[raomin/<br>ESPAltherma](https://github.com/raomin/ESPAltherma)** | **[tadasdanielius/<br>daikin_altherma](https://github.com/tadasdanielius/daikin_altherma)** | **[speleolontra/<br>daikin_residential_altherma](https://github.com/speleolontra/daikin_residential_altherma)** ||
 |------------------------------------|------------------------------------------------------------------------------------|----------------------------------------------------------|-------------------------------------------------------------------------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------|-------------------------------------------|
 | **Hardware** | • Arduino Uno<br>• Ethernet Shield<br>• Custom P1P2 Uno adapter | • Custom all-in-one board | • M5StickC (or any ESP32/ESP8266 board)<br> • external relay (optional) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with OLD firmware) | • Daikin LAN adapter<br>(BRP069A62/ BRP069A61<br>with NEW firmware) | • Daikin WLAN adapter<br>(BRP069A78) |
 | **Programable MCUs** | ATmega328P | ATmega328P + ESP8266 | ESP32/8266 | --- | --- ||
